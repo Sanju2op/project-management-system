@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
+import { Bell } from "lucide-react";
 import {
   Users,
   Briefcase,
@@ -19,6 +20,7 @@ import ManageDivisions from "./ManageDivisions";
 import EvaluationParameters from "./EvaluationParameters";
 import ExamScheduleManagement from "./ExamScheduleManagement";
 import ProjectManagement from "./ProjectManagement";
+import { notificationAPI } from "../../services/api"; // adjust path as needed
 
 // Placeholder components for future implementation
 const ProjectsPage = () => (
@@ -86,6 +88,9 @@ function Dashboard() {
   const settingsMenuRef = useRef(null);
   const settingsIconRef = useRef(null);
 
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -99,6 +104,23 @@ function Dashboard() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await notificationAPI.getAll();
+        if (data.success) setNotifications(data.data);
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      }
+    };
+
+    fetchNotifications();
+
+    // optional: auto-refresh every 30s
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -123,7 +145,7 @@ function Dashboard() {
       description:
         "Organize and oversee student project groups and memberships.",
     },
-   
+
     {
       name: "Projects",
       icon: Briefcase,
@@ -153,7 +175,7 @@ function Dashboard() {
       description:
         "Define and update project evaluation criteria and percentages.",
     },
-     {
+    {
       name: "Students",
       icon: User,
       path: "students",
@@ -222,54 +244,106 @@ function Dashboard() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-lg">
             Admin <span className="text-cyan-400">Control Center</span>
           </h1>
-          <div className="relative">
-            <Settings
-              ref={settingsIconRef}
-              size={30}
-              className={`text-white hover:text-cyan-400 transition duration-200 cursor-pointer drop-shadow-md ${
-                isSettingsMenuOpen ? "animate-spin" : ""
-              }`}
-              onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-              title="System Settings"
-              aria-label="Toggle settings menu"
-            />
-            {isSettingsMenuOpen && (
-              <div
-                className="absolute right-0 mt-3 w-48 z-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  ref={settingsMenuRef}
-                  className="bg-white/20 backdrop-blur-xl rounded-xl shadow-2xl border border-white/30 overflow-hidden animate-fade-in transform scale-100 transition duration-200"
-                >
-                  <ul className="py-2">
-                    <li>
-                      <button
+
+          {/* 🔔 Notification + ⚙️ Settings Section */}
+          <div className="flex items-center space-x-6 relative">
+            {/* 🔔 Notification Bell */}
+            <div className="relative">
+              <Bell
+                size={26}
+                className="text-white hover:text-cyan-400 cursor-pointer transition"
+                onClick={() => setShowNotifications(!showNotifications)}
+                title="View Notifications"
+              />
+              {notifications.some((n) => !n.isRead) && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-white/20 backdrop-blur-lg rounded-lg border border-white/30 shadow-xl p-3 z-50 animate-fade-in-down">
+                  <h4 className="font-semibold text-white border-b border-white/20 pb-1 mb-2">
+                    Notifications
+                  </h4>
+                  {notifications.length === 0 ? (
+                    <p className="text-gray-200 text-sm">No notifications</p>
+                  ) : (
+                    notifications.slice(0, 6).map((n) => (
+                      <div
+                        key={n._id}
                         onClick={() => {
-                          navigate("/admin/dashboard/settings");
-                          setIsSettingsMenuOpen(false);
+                          setShowNotifications(false);
+                          if (n.type === "guide")
+                            navigate("/admin/dashboard/guides");
+                          else if (n.type === "group")
+                            navigate("/admin/dashboard/groups");
                         }}
-                        className="flex items-center w-full px-4 py-2 text-white hover:bg-cyan-400/50 transition duration-150 font-semibold"
-                        aria-label="Manage Settings"
+                        className={`p-2 mb-1 rounded-md text-sm cursor-pointer hover:bg-cyan-500/30 transition ${
+                          n.isRead
+                            ? "text-gray-300"
+                            : "bg-cyan-500/20 text-white"
+                        }`}
                       >
-                        <User size={20} className="mr-3 text-cyan-400" /> Manage
-                        Settings
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-2 text-white hover:bg-cyan-400/50 transition duration-150 font-semibold"
-                        aria-label="Logout"
-                      >
-                        <LogOut size={20} className="mr-3 text-cyan-400" />{" "}
-                        Logout
-                      </button>
-                    </li>
-                  </ul>
+                        {n.message}
+                        <div className="text-xs text-gray-400 mt-1">
+                          {new Date(n.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* ⚙️ Settings Icon */}
+            <div className="relative">
+              <Settings
+                ref={settingsIconRef}
+                size={30}
+                className={`text-white hover:text-cyan-400 transition duration-200 cursor-pointer drop-shadow-md ${
+                  isSettingsMenuOpen ? "animate-spin" : ""
+                }`}
+                onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                title="System Settings"
+                aria-label="Toggle settings menu"
+              />
+              {isSettingsMenuOpen && (
+                <div
+                  className="absolute right-0 mt-3 w-48 z-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    ref={settingsMenuRef}
+                    className="bg-white/20 backdrop-blur-xl rounded-xl shadow-2xl border border-white/30 overflow-hidden animate-fade-in transform scale-100 transition duration-200"
+                  >
+                    <ul className="py-2">
+                      <li>
+                        <button
+                          onClick={() => {
+                            navigate("/admin/dashboard/settings");
+                            setIsSettingsMenuOpen(false);
+                          }}
+                          className="flex items-center w-full px-4 py-2 text-white hover:bg-cyan-400/50 transition duration-150 font-semibold"
+                          aria-label="Manage Settings"
+                        >
+                          <User size={20} className="mr-3 text-cyan-400" />{" "}
+                          Manage Settings
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center w-full px-4 py-2 text-white hover:bg-cyan-400/50 transition duration-150 font-semibold"
+                          aria-label="Logout"
+                        >
+                          <LogOut size={20} className="mr-3 text-cyan-400" />{" "}
+                          Logout
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

@@ -19,9 +19,13 @@ export const getActiveDivisions = async (req, res) => {
 export const getPendingEnrollments = async (req, res) => {
   try {
     const { divisionId } = req.query;
-    if (!divisionId) return res.status(400).json({ message: "divisionId is required" });
+    if (!divisionId)
+      return res.status(400).json({ message: "divisionId is required" });
 
-    const students = await Student.find({ division: divisionId, isRegistered: false })
+    const students = await Student.find({
+      division: divisionId,
+      isRegistered: false,
+    })
       .select("enrollmentNumber name")
       .sort({ enrollmentNumber: 1 })
       .lean();
@@ -35,9 +39,12 @@ export const getPendingEnrollments = async (req, res) => {
 // POST /api/student/register - body: { divisionId, enrollmentNumber, name, phone, email, password }
 export const registerStudent = async (req, res) => {
   try {
-    const { divisionId, enrollmentNumber, name, phone, email, password } = req.body;
+    const { divisionId, enrollmentNumber, name, phone, email, password } =
+      req.body;
     if (!divisionId || !enrollmentNumber || !name || !password) {
-      return res.status(400).json({ message: "divisionId, enrollmentNumber, name, password are required" });
+      return res.status(400).json({
+        message: "divisionId, enrollmentNumber, name, password are required",
+      });
     }
 
     const division = await Division.findById(divisionId);
@@ -45,9 +52,14 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({ message: "Invalid or inactive division" });
     }
 
-    const student = await Student.findOne({ enrollmentNumber, division: divisionId });
+    const student = await Student.findOne({
+      enrollmentNumber,
+      division: divisionId,
+    });
     if (!student) {
-      return res.status(404).json({ message: "Enrollment not found for this division" });
+      return res
+        .status(404)
+        .json({ message: "Enrollment not found for this division" });
     }
 
     // Update allowed fields and mark registered
@@ -69,17 +81,25 @@ export const loginStudent = async (req, res) => {
   try {
     const { enrollmentNumber, password } = req.body;
     if (!enrollmentNumber || !password) {
-      return res.status(400).json({ message: "Enrollment number and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Enrollment number and password are required" });
     }
 
-    const student = await Student.findOne({ enrollmentNumber }).populate("division");
+    const student = await Student.findOne({ enrollmentNumber }).populate(
+      "division"
+    );
     if (!student || !student.isRegistered) {
-      return res.status(401).json({ message: "Invalid enrollment number or password" });
+      return res
+        .status(401)
+        .json({ message: "Invalid enrollment number or password" });
     }
 
     const isMatch = await student.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid enrollment number or password" });
+      return res
+        .status(401)
+        .json({ message: "Invalid enrollment number or password" });
     }
 
     // Generate JWT token
@@ -106,7 +126,10 @@ export const checkStudentGroup = async (req, res) => {
   try {
     const studentId = req.student._id; // from auth middleware
 
-    const group = await Group.findOne({ students: studentId }).populate("students", "enrollmentNumber name");
+    const group = await Group.findOne({ students: studentId }).populate(
+      "students",
+      "enrollmentNumber name"
+    );
 
     if (group) {
       res.json({ inGroup: true, group });
@@ -127,17 +150,25 @@ export const getAvailableStudents = async (req, res) => {
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     // Get all students in same division (both registered and not registered)
-    const divisionStudents = await Student.find({ division: student.division._id })
+    const divisionStudents = await Student.find({
+      division: student.division._id,
+    })
       .select("_id enrollmentNumber name isRegistered")
       .lean();
 
     // Get students already in groups
-    const groupsInDivision = await Group.find({ division: student.division._id });
-    const groupedStudentIds = groupsInDivision.flatMap(group => group.students.map(id => id.toString()));
+    const groupsInDivision = await Group.find({
+      division: student.division._id,
+    });
+    const groupedStudentIds = groupsInDivision.flatMap((group) =>
+      group.students.map((id) => id.toString())
+    );
 
     // Filter out students already in groups and the current student
-    const availableStudents = divisionStudents.filter(s =>
-      !groupedStudentIds.includes(s._id.toString()) && s._id.toString() !== studentId
+    const availableStudents = divisionStudents.filter(
+      (s) =>
+        !groupedStudentIds.includes(s._id.toString()) &&
+        s._id.toString() !== studentId
     );
 
     res.json(availableStudents);
@@ -152,12 +183,22 @@ export const createGroup = async (req, res) => {
     const studentId = req.student._id; // from auth middleware
     const { project, members } = req.body;
 
-    if (!project || !project.name || !project.title || !project.description || !project.technology) {
-      return res.status(400).json({ message: "All project fields are required" });
+    if (
+      !project ||
+      !project.name ||
+      !project.title ||
+      !project.description ||
+      !project.technology
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All project fields are required" });
     }
 
     if (!members || members.length < 2 || members.length > 3) {
-      return res.status(400).json({ message: "Select 2-3 additional students" });
+      return res
+        .status(400)
+        .json({ message: "Select 2-3 additional students" });
     }
 
     // Check if student is already in a group
@@ -174,12 +215,16 @@ export const createGroup = async (req, res) => {
     const allStudentIds = [studentId, ...members];
     const groups = await Group.find({ students: { $in: allStudentIds } });
     if (groups.length > 0) {
-      return res.status(400).json({ message: "Some selected students are already in groups" });
+      return res
+        .status(400)
+        .json({ message: "Some selected students are already in groups" });
     }
 
     // Create members snapshot
-    const allStudents = await Student.find({ _id: { $in: allStudentIds } }).populate("division");
-    const membersSnapshot = allStudents.map(s => ({
+    const allStudents = await Student.find({
+      _id: { $in: allStudentIds },
+    }).populate("division");
+    const membersSnapshot = allStudents.map((s) => ({
       studentRef: s._id,
       enrollmentNumber: s.enrollmentNumber,
       name: s.name,
@@ -200,6 +245,18 @@ export const createGroup = async (req, res) => {
     });
 
     await group.save();
+    try {
+      await Notification.create({
+        type: "group",
+        message: `New group "${group.name}" created.`,
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.warn(
+        "Failed to create notification for new group:",
+        notifErr.message
+      );
+    }
 
     // Populate for response
     await group.populate("students", "enrollmentNumber name");
@@ -207,7 +264,9 @@ export const createGroup = async (req, res) => {
 
     res.status(201).json({ message: "Group created successfully", group });
   } catch (error) {
-    res.status(500).json({ message: "Failed to create group", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to create group", error: error.message });
   }
 };
 
@@ -227,7 +286,9 @@ export const getStudentProfile = async (req, res) => {
       name: student.name,
       email: student.email,
       phone: student.phone,
-      department: student.division ? `${student.division.course} - Semester ${student.division.semester}` : 'N/A'
+      department: student.division
+        ? `${student.division.course} - Semester ${student.division.semester}`
+        : "N/A",
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch profile" });

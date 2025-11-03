@@ -22,6 +22,7 @@ import { toast } from "react-toastify";
 import Input from "../../components/UI/Input";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; // Explicitly import autoTable
+import { notificationAPI } from "../../services/api"; // adjust path if needed
 
 // Simple error boundary
 class ErrorBoundary extends React.Component {
@@ -256,6 +257,10 @@ function GuideManagement() {
     }
   };
 
+  // At top of file: add this import (near other api imports)
+
+  // -------------------------
+  // Replace existing handleSaveNewGuide with this:
   const handleSaveNewGuide = async (e) => {
     e.preventDefault();
     if (
@@ -268,12 +273,30 @@ function GuideManagement() {
       return;
     }
     try {
-      await guideAPI.add(newGuide);
+      // 1) create guide via API
+      const { data: created } = await guideAPI.add(newGuide);
+
+      // 2) show success toast and close modal
       toast.success("Guide added successfully!");
       setShowAddGuideModal(false);
+
+      // 3) create a notification for admins (optional: if your notificationAPI path differs, update)
+      // notificationAPI.create expects { type, message } (adjust to your API)
+      try {
+        await notificationAPI.create({
+          type: "guide",
+          message: `New guide "${newGuide.name}" registered and needs review.`,
+        });
+      } catch (notifErr) {
+        // notification failure should not block the main flow
+        console.warn("Notification create failed:", notifErr);
+      }
+
+      // 4) refresh guides
       fetchGuides();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add guide.");
+      console.error("Error creating guide:", err);
     }
   };
 

@@ -2626,3 +2626,48 @@ export const updateGroupGuide = async (req, res) => {
     });
   }
 };
+
+import Notification from "../../models/Notification.js";
+
+// ✅ Get all notifications
+export const getAllNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: notifications });
+  } catch (err) {
+    console.error("❌ Error fetching notifications:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Create notification
+export const createNotification = async (req, res) => {
+  try {
+    const { type, message } = req.body;
+    const newNotification = await Notification.create({ type, message });
+    res.status(201).json({ success: true, data: newNotification });
+  } catch (err) {
+    console.error("❌ Error creating notification:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Mark single as read
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ success: true, message: "Marked as read" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Mark all as read
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    await Notification.updateMany({}, { isRead: true });
+    res.json({ success: true, message: "All marked as read" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

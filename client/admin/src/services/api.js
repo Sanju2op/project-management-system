@@ -124,4 +124,12 @@ export const guideAnnouncementAPI = {
   delete: (id) => api.delete(`/guide-announcements/${id}`),
 };
 
+// inside api.js (where `api` axios instance exists)
+export const notificationAPI = {
+  getAll: () => api.get("/notifications"), // GET /api/notifications
+  create: (payload) => api.post("/notifications", payload),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch("/notifications/mark-all-read"),
+};
+
 export default api;

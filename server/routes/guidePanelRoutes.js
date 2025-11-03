@@ -48,8 +48,10 @@ router.get("/projects", async (req, res) => {
       .lean();
 
     const groupIds = groups.map((g) => g._id);
-    const evaluations = await GuideProjectEvaluation.find({ guide: guideId, group: { $in: groupIds } })
-      .lean();
+    const evaluations = await GuideProjectEvaluation.find({
+      guide: guideId,
+      group: { $in: groupIds },
+    }).lean();
     const evalMap = new Map(evaluations.map((e) => [e.group.toString(), e]));
 
     const data = groups.map((g) => {
@@ -62,7 +64,9 @@ router.get("/projects", async (req, res) => {
         status: e?.status || "Pending Evaluation",
         progress: 0,
         submittedDate: g.createdAt?.toISOString?.().split("T")[0] || null,
-        lastEvaluation: e?.lastEvaluatedAt ? new Date(e.lastEvaluatedAt).toISOString().split("T")[0] : null,
+        lastEvaluation: e?.lastEvaluatedAt
+          ? new Date(e.lastEvaluatedAt).toISOString().split("T")[0]
+          : null,
         documents: ["Proposal.pdf", "Design.docx"],
         members: (g.students || []).map((s) => s.name),
         evaluation: e
@@ -100,7 +104,9 @@ router.post("/projects/:groupId/evaluate", async (req, res) => {
 
     const group = await Group.findOne({ _id: groupId, guide: guideId });
     if (!group) {
-      return res.status(404).json({ success: false, message: "Group not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Group not found" });
     }
 
     const updated = await GuideProjectEvaluation.findOneAndUpdate(
@@ -284,7 +290,9 @@ router.get("/groups/:groupId/available-students", async (req, res) => {
         .json({ success: false, message: "Group not found" });
     }
 
-    const available = await Student.find({ $or: [{ group: null }, { group: groupId }] })
+    const available = await Student.find({
+      $or: [{ group: null }, { group: groupId }],
+    })
       .select("name enrollmentNumber email")
       .limit(100)
       .lean();
@@ -342,29 +350,50 @@ router.get("/feedback", async (req, res) => {
 router.post("/feedback", async (req, res) => {
   try {
     const guideId = req.guide._id.toString();
-    const { groupId, groupName, project, feedback, rating = 5, recommendations = "" } = req.body || {};
+    const {
+      groupId,
+      groupName,
+      project,
+      feedback,
+      rating = 5,
+      recommendations = "",
+    } = req.body || {};
 
     let resolvedGroupId = groupId;
     if (!resolvedGroupId && groupName) {
-      const grp = await Group.findOne({ name: groupName, guide: guideId }).lean();
+      const grp = await Group.findOne({
+        name: groupName,
+        guide: guideId,
+      }).lean();
       if (!grp) {
-        return res.status(404).json({ success: false, message: "Group not found for this guide" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Group not found for this guide" });
       }
       resolvedGroupId = grp._id.toString();
     }
 
     if (!resolvedGroupId) {
-      return res.status(400).json({ success: false, message: "groupId or valid groupName is required" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "groupId or valid groupName is required",
+        });
     }
 
     // Ensure ownership
     const group = await Group.findOne({ _id: resolvedGroupId, guide: guideId });
     if (!group) {
-      return res.status(404).json({ success: false, message: "Group not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Group not found" });
     }
 
     if (!feedback || !feedback.trim()) {
-      return res.status(400).json({ success: false, message: "Feedback message is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Feedback message is required" });
     }
 
     const created = await Feedback.create({
@@ -402,11 +431,14 @@ router.put("/feedback/:id", async (req, res) => {
   try {
     const guideId = req.guide._id.toString();
     const { id } = req.params;
-    const { feedback, rating, recommendations, status, project } = req.body || {};
+    const { feedback, rating, recommendations, status, project } =
+      req.body || {};
 
     const item = await Feedback.findOne({ _id: id, guide: guideId });
     if (!item) {
-      return res.status(404).json({ success: false, message: "Feedback not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Feedback not found" });
     }
 
     if (feedback !== undefined) item.message = feedback;
@@ -417,7 +449,10 @@ router.put("/feedback/:id", async (req, res) => {
 
     await item.save();
 
-    const populated = await item.populate({ path: "group", select: "name projectTitle" });
+    const populated = await item.populate({
+      path: "group",
+      select: "name projectTitle",
+    });
 
     return res.status(200).json({
       data: {
@@ -444,9 +479,14 @@ router.delete("/feedback/:id", async (req, res) => {
   try {
     const guideId = req.guide._id.toString();
     const { id } = req.params;
-    const deleted = await Feedback.findOneAndDelete({ _id: id, guide: guideId });
+    const deleted = await Feedback.findOneAndDelete({
+      _id: id,
+      guide: guideId,
+    });
     if (!deleted) {
-      return res.status(404).json({ success: false, message: "Feedback not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Feedback not found" });
     }
     return res.status(200).json({ data: { message: "Feedback deleted" } });
   } catch (error) {
@@ -467,7 +507,9 @@ router.post("/feedback/:id/remind", async (req, res) => {
       populate: { path: "students", select: "name email" },
     });
     if (!item || !item.group) {
-      return res.status(404).json({ success: false, message: "Feedback not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Feedback not found" });
     }
 
     const recipients = (item.group.students || [])
@@ -476,7 +518,13 @@ router.post("/feedback/:id/remind", async (req, res) => {
 
     if (recipients.length === 0) {
       // Gracefully respond success even if no emails to avoid UI errors
-      return res.status(200).json({ data: { message: "No recipient emails available; reminder acknowledged." } });
+      return res
+        .status(200)
+        .json({
+          data: {
+            message: "No recipient emails available; reminder acknowledged.",
+          },
+        });
     }
 
     // Attempt sending emails; swallow individual failures to be graceful
@@ -486,7 +534,11 @@ router.post("/feedback/:id/remind", async (req, res) => {
           await sendEmail({
             to,
             type: "GUIDE_EVALUATION_UPDATED",
-            data: { name: to.split("@")[0], projectName: item.projectTitle || item.group.projectTitle || item.group.name },
+            data: {
+              name: to.split("@")[0],
+              projectName:
+                item.projectTitle || item.group.projectTitle || item.group.name,
+            },
           });
         } catch (err) {
           // Log and continue without failing the whole request
@@ -497,12 +549,13 @@ router.post("/feedback/:id/remind", async (req, res) => {
 
     return res.status(200).json({ data: { message: "Reminder sent" } });
   } catch (error) {
-    console.warn("Reminder email encountered issues (graceful):", error.message);
+    console.warn(
+      "Reminder email encountered issues (graceful):",
+      error.message
+    );
     // Graceful success to avoid blocking UI due to dummy emails
     return res.status(200).json({ data: { message: "Reminder attempted" } });
   }
 });
 
 export default router;
-
-
