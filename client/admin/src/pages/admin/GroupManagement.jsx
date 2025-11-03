@@ -711,7 +711,7 @@ function GroupManagement() {
               </div>
 
               <p className="text-white/80 text-center mb-6">
-                Select students to add (Max: {-selectedGroup.members.length}{" "}
+                Select students to add (Max: {4 - selectedGroup.members.length}{" "}
                 more)
               </p>
 
