@@ -10,7 +10,7 @@ import {
   Loader,
   X,
 } from "lucide-react";
-import { adminApi } from "../services/api";
+import { adminAPI } from "../services/api";
 
 function PasswordManager({
   role,
@@ -59,7 +59,7 @@ function PasswordManager({
     try {
       let res;
       if (mode === "change") {
-        res = await adminApi.post(`/${role}/change-password`, {
+        res = await adminAPI.post(`/${role}/change-password`, {
           email: form.email,
           oldPassword: form.oldPassword,
           newPassword: form.newPassword,
@@ -67,12 +67,12 @@ function PasswordManager({
         setMessage(res.data.message || "Password changed successfully!");
         setMessageType("success");
       } else if (mode === "forgot") {
-        res = await adminApi.post(`/${role}/forgot-password`, { email: form.email });
+        res = await adminAPI.post(`/${role}/forgot-password`, { email: form.email });
         setMessage(res.data.message || "OTP sent to your email.");
         setMessageType("success");
         setMode("reset");
       } else if (mode === "reset") {
-        res = await adminApi.post(`/${role}/reset-password`, {
+        res = await adminAPI.post(`/${role}/reset-password`, {
           email: form.email,
           otp: form.otp,
           newPassword: form.newPassword,
