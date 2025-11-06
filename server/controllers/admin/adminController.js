@@ -2005,6 +2005,42 @@ export const updateGuideAnnouncement = async (req, res) => {
   }
 };
 
+// DELETE: Remove a guide by ID
+export const deleteGuide = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const guide = await Guide.findById(id);
+    if (!guide) {
+      return res.status(404).json({ message: "Guide not found" });
+    }
+
+    // Optional: If guides have related data (like groups, projects), handle that here.
+
+    await Guide.findByIdAndDelete(id);
+
+    // 🔔 Create notification for admin dashboard
+    try {
+      await Notification.create({
+        type: "guide",
+        message: `Guide "${guide.name}" has been deleted.`,
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.warn("Failed to create notification:", notifErr.message);
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "Guide deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting guide:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to delete guide", error: error.message });
+  }
+};
+
 /**
  * @desc   Delete a guide announcement by ID
  * @route  DELETE /api/admin/guide-announcements/:id

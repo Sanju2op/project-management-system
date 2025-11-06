@@ -225,9 +225,20 @@ function GuideManagement() {
   const handleDeleteGuide = async (id) => {
     if (!window.confirm("Are you sure you want to delete this guide?")) return;
     try {
-      await guideAPI.delete(id);
-      toast.success("Guide deleted successfully!");
-      fetchGuides();
+      const response = await guideAPI.delete(id);
+      toast.success(response?.data?.message || "Guide deleted successfully!");
+
+      // Optional: Create admin-side notification
+      try {
+        await notificationAPI.create({
+          type: "guide",
+          message: `Guide with ID "${id}" deleted.`,
+        });
+      } catch (notifErr) {
+        console.warn("Notification creation failed:", notifErr.message);
+      }
+
+      fetchGuides(); // Refresh the list
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete guide.");
     }

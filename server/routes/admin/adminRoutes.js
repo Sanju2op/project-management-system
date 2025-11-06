@@ -13,6 +13,7 @@ import {
   updateGuide,
   updateGuideStatus,
   getActiveGuides,
+  deleteGuide,
   getGroupsByYearOrCourse,
   getDivisions,
   getGroupById,
@@ -106,6 +107,9 @@ router.patch("/new-guide-status/:id", updateGuideStatus);
 
 // GET /api/admin/active-guides
 router.get("/active-guides", getActiveGuides);
+
+// DELETE /api/admin/guides/:id
+router.delete("/guides/:id", deleteGuide);
 
 // GET /api/admin/get-groups?year=2025
 router.get("/get-groups", getGroupsByYearOrCourse);
