@@ -1,14 +1,18 @@
-# TODO List for Student App Changes
+# TODO: Add New Endpoint for Group Project Evaluations
 
-## Task 1: Remove Group Management from Student Dashboard
-- [x] Edit `client/student/src/pages/StudentDashboard.jsx` to remove the "Group Management" card from the quick actions grid.
+## Steps to Complete
 
-## Task 2: Display Group/Project Details in Student Profile
-- [x] Edit `client/student/src/pages/StudentProfile.jsx` to fetch group data using `studentProtectedAPI.checkGroup()`.
-- [x] Add a new section in the profile details grid to display group name, project details, and member information (names and enrollment numbers).
-- [x] Handle cases where the student is not in a group (display appropriate message).
+- [ ] Add `getGroupProjectEvaluations` function to `server/controllers/admin/adminController.js`
 
-## Testing
-- [x] Run the student app and verify the dashboard no longer shows the Group Management card.
-- [x] Navigate to the profile page and confirm group/project details are displayed correctly.
-- [x] Test edge cases: student not in group, group with multiple members.
+  - Fetch the group by `groupId` and populate students/membersSnapshot.
+  - Fetch all `ProjectEvaluation` documents for the group.
+  - Structure the response as an array of students, each with parameters and marks.
+  - Ensure only group members are included.
+
+- [ ] Add new route `GET /api/admin/groups/:groupId/project-evaluations` to `server/routes/admin/adminRoutes.js`
+
+  - Import the new function and add the route with `protectAdmin` middleware.
+
+- [ ] Test the endpoint
+  - Run the server and make a GET request to verify the response structure.
+  - Check that it returns 16 records for 4 students and 4 parameters (if applicable).

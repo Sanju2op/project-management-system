@@ -60,6 +60,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsRead,
   saveAllProjectEvaluations,
+  getGroupProjectEvaluations,
   // updateGroupDetails,
 } from "../../controllers/admin/adminController.js";
 
@@ -278,4 +279,8 @@ router.post(
   "/save-all-project-evaluations/:groupId",
   saveAllProjectEvaluations
 );
+
+// GET /api/admin/groups/:groupId/project-evaluations
+router.get("/groups/:groupId/project-evaluations", getGroupProjectEvaluations);
+
 export default router;

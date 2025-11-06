@@ -2530,7 +2530,7 @@ export const saveAllProjectEvaluations = async (req, res) => {
         projectId: groupId,
         studentId: e.student,
         parameterId: e.parameter,
-        marks: Number(e.marks),
+        givenMarks: Number(e.marks),
         evaluatedBy: req.admin.id, // assuming admin is evaluating
       }));
       await ProjectEvaluation.insertMany(docs);
@@ -2696,5 +2696,99 @@ export const markAllNotificationsRead = async (req, res) => {
     res.json({ success: true, message: "All marked as read" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc   Get all project evaluations for a specific group, structured by students and parameters
+ * @route  GET /api/admin/groups/:groupId/project-evaluations
+ * @access Private (Admin)
+ */
+export const getGroupProjectEvaluations = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // 1️⃣ Find the group and get its students
+    const group = await Group.findById(groupId)
+      .populate({
+        path: "membersSnapshot",
+        populate: {
+          path: "studentRef",
+          select: "name enrollmentNumber _id",
+        },
+      })
+      .populate("students", "name enrollmentNumber _id")
+      .select("students membersSnapshot");
+
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: "Group not found",
+      });
+    }
+
+    // Construct students array (from membersSnapshot or students)
+    const students =
+      group.membersSnapshot && group.membersSnapshot.length > 0
+        ? group.membersSnapshot.map((m) => ({
+            _id: m.studentRef?._id,
+            name: m.studentRef?.name || "Unknown",
+            enrollmentNumber: m.studentRef?.enrollmentNumber || "N/A",
+          }))
+        : group.students.map((s) => ({
+            _id: s._id,
+            name: s.name,
+            enrollmentNumber: s.enrollmentNumber,
+          }));
+
+    // 2️⃣ Fetch all evaluation parameters
+    const parameters = await EvaluationParameter.find().sort({ order: 1 });
+
+    // 3️⃣ Fetch all project evaluations for the group
+    const evaluations = await ProjectEvaluation.find({ projectId: groupId })
+      .populate("studentId", "name enrollmentNumber")
+      .populate("parameterId", "name description marks")
+      .populate("evaluatedBy", "name email");
+
+    // 4️⃣ Structure the response: array of students, each with evaluations by parameter
+    const studentEvaluations = students.map((student) => {
+      const studentEvals = parameters.map((param) => {
+        const evalRecord = evaluations.find(
+          (e) =>
+            e.studentId._id.toString() === student._id.toString() &&
+            e.parameterId._id.toString() === param._id.toString()
+        );
+        return {
+          parameter: {
+            _id: param._id,
+            name: param.name,
+            description: param.description,
+            marks: param.marks,
+          },
+          givenMarks: evalRecord ? evalRecord.givenMarks : null,
+          evaluatedBy: evalRecord ? evalRecord.evaluatedBy : null,
+        };
+      });
+
+      return {
+        student: {
+          _id: student._id,
+          name: student.name,
+          enrollmentNumber: student.enrollmentNumber,
+        },
+        evaluations: studentEvals,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: studentEvaluations,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching group project evaluations:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching evaluations",
+    });
   }
 };
