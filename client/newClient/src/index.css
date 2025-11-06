@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Custom CSS variables and utilities */
+:root {
+  --accent-teal: #38b2a5;
+  --accent-cyan: #06b6d4;
+}
+
+/* Custom utility classes */
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(56, 178, 165, 0.3);
+}
+
+/* Animation classes */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+/* Neumorphic shadow */
+.shadow-neumorphic {
+  box-shadow: 
+    8px 8px 16px rgba(0, 0, 0, 0.3),
+    -8px -8px 16px rgba(255, 255, 255, 0.1);
+}
+
+/* Custom slider styles for ProjectEvaluation */
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(to right, #38b2a5, #06b6d4);
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(to right, #38b2a5, #06b6d4);
+  cursor: pointer;
+  border: 2px solid white;
+}
