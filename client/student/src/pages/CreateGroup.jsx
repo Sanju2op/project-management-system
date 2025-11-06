@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Check, X } from 'lucide-react';
-import { studentProtectedAPI } from '../services/api';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Users, Plus, Check, X } from "lucide-react";
+import { studentProtectedAPI } from "../services/api";
 
 function CreateGroup() {
   const navigate = useNavigate();
   const [projectData, setProjectData] = useState({
-    name: '',
-    title: '',
-    description: '',
-    technology: ''
+    name: "",
+    title: "",
+    description: "",
+    technology: "",
   });
   const [availableStudents, setAvailableStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchAvailableStudents();
@@ -25,24 +25,24 @@ function CreateGroup() {
       const data = await studentProtectedAPI.getAvailableStudents();
       setAvailableStudents(data);
     } catch (err) {
-      console.error('Error fetching available students:', err);
-      setError('Failed to load available students');
+      console.error("Error fetching available students:", err);
+      setError("Failed to load available students");
     }
   };
 
   const handleProjectChange = (e) => {
     const { name, value } = e.target;
-    setProjectData(prev => ({
+    setProjectData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const toggleStudentSelection = (student) => {
-    setSelectedStudents(prev => {
-      const isSelected = prev.some(s => s._id === student._id);
+    setSelectedStudents((prev) => {
+      const isSelected = prev.some((s) => s._id === student._id);
       if (isSelected) {
-        return prev.filter(s => s._id !== student._id);
+        return prev.filter((s) => s._id !== student._id);
       } else {
         if (prev.length >= 3) {
           return prev; // Max 3 additional students
@@ -54,16 +54,21 @@ function CreateGroup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     // Validation
-    if (!projectData.name || !projectData.title || !projectData.description || !projectData.technology) {
-      setError('Please fill in all project details');
+    if (
+      !projectData.name ||
+      !projectData.title ||
+      !projectData.description ||
+      !projectData.technology
+    ) {
+      setError("Please fill in all project details");
       return;
     }
 
     if (selectedStudents.length < 2 || selectedStudents.length > 3) {
-      setError('Please select 2-3 additional students');
+      setError("Please select 2-3 additional students");
       return;
     }
 
@@ -72,14 +77,32 @@ function CreateGroup() {
     try {
       const payload = {
         project: projectData,
-        members: selectedStudents.map(s => s._id)
+        members: selectedStudents.map((s) => s._id),
       };
 
-      await studentProtectedAPI.createGroup(payload);
-      navigate('/student/dashboard');
+      const res = await studentProtectedAPI.createGroup(payload); // existing API call
+
+      // Optionally read created group from res (adapt if response shape differs)
+      const createdGroup = res?.data?.group || res?.group || res;
+
+      // try to create notification for admin
+      try {
+        await notificationAPI.create({
+          type: "group",
+          message: `New group "${projectData.name}" created by ${
+            createdGroup?.members?.[0]?.name || "a student"
+          }.`,
+        });
+      } catch (notifErr) {
+        console.warn("Notification create failed:", notifErr);
+      }
+
+      navigate("/student/dashboard");
     } catch (err) {
-      console.error('Error creating group:', err);
-      setError(err.message || 'Failed to create group');
+      console.error("Error creating group:", err);
+      setError(
+        err.response?.data?.message || err.message || "Failed to create group"
+      );
     } finally {
       setLoading(false);
     }
@@ -91,8 +114,12 @@ function CreateGroup() {
         <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8">
           <div className="text-center mb-8">
             <Users size={48} className="text-blue-400 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Create Your Project Group</h1>
-            <p className="text-white/70">Form a team of 3-4 students to work on your project</p>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Create Your Project Group
+            </h1>
+            <p className="text-white/70">
+              Form a team of 3-4 students to work on your project
+            </p>
           </div>
 
           {error && (
@@ -104,7 +131,9 @@ function CreateGroup() {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Project Details */}
             <div>
-              <h2 className="text-xl font-bold text-white mb-6">Project Details</h2>
+              <h2 className="text-xl font-bold text-white mb-6">
+                Project Details
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-white/70 text-sm font-medium mb-2">
@@ -174,26 +203,33 @@ function CreateGroup() {
                 Select Team Members ({selectedStudents.length}/3)
               </h2>
               <p className="text-white/70 mb-4">
-                Choose 2-3 additional students from your division who are not already in a group
+                Choose 2-3 additional students from your division who are not
+                already in a group
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {availableStudents.map(student => {
-                  const isSelected = selectedStudents.some(s => s._id === student._id);
+                {availableStudents.map((student) => {
+                  const isSelected = selectedStudents.some(
+                    (s) => s._id === student._id
+                  );
                   return (
                     <div
                       key={student._id}
                       onClick={() => toggleStudentSelection(student)}
                       className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
                         isSelected
-                          ? 'bg-blue-500/20 border-blue-500/50'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          ? "bg-blue-500/20 border-blue-500/50"
+                          : "bg-white/5 border-white/10 hover:bg-white/10"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-white font-medium">{student.name}</p>
-                          <p className="text-white/70 text-sm">{student.enrollmentNumber}</p>
+                          <p className="text-white font-medium">
+                            {student.name}
+                          </p>
+                          <p className="text-white/70 text-sm">
+                            {student.enrollmentNumber}
+                          </p>
                         </div>
                         {isSelected ? (
                           <Check size={20} className="text-blue-400" />
@@ -208,7 +244,9 @@ function CreateGroup() {
 
               {availableStudents.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-white/70">No available students found in your division</p>
+                  <p className="text-white/70">
+                    No available students found in your division
+                  </p>
                 </div>
               )}
             </div>
@@ -220,7 +258,7 @@ function CreateGroup() {
                 disabled={loading}
                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating Group...' : 'Create Group'}
+                {loading ? "Creating Group..." : "Create Group"}
               </button>
             </div>
           </form>

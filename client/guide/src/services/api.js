@@ -393,10 +393,13 @@ export const guidePanelAPI = {
   },
 
   evaluateProject: async (projectId, evaluationData) => {
-    const response = await apiRequest(`/guide-panel/projects/${projectId}/evaluate`, {
-      method: "POST",
-      body: JSON.stringify(evaluationData),
-    });
+    const response = await apiRequest(
+      `/guide-panel/projects/${projectId}/evaluate`,
+      {
+        method: "POST",
+        body: JSON.stringify(evaluationData),
+      }
+    );
     return response.data;
   },
 
@@ -466,9 +469,12 @@ export const guidePanelAPI = {
   },
 
   remindGroup: async (feedbackId) => {
-    const response = await apiRequest(`/guide-panel/feedback/${feedbackId}/remind`, {
-      method: "POST",
-    });
+    const response = await apiRequest(
+      `/guide-panel/feedback/${feedbackId}/remind`,
+      {
+        method: "POST",
+      }
+    );
     return response.data;
   },
 
@@ -499,6 +505,28 @@ export const guidePanelAPI = {
     console.warn("getReports endpoint not implemented in backend yet");
     return null;
   },
+};
+
+// ✅ Notifications API for guide dashboard
+export const notificationAPI = {
+  getAll: () => apiRequest("/notifications"),
+
+  create: (payload) =>
+    apiRequest("/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  markRead: (id) =>
+    apiRequest(`/notifications/${id}/read`, {
+      method: "PATCH",
+    }),
+
+  markAllRead: () =>
+    apiRequest("/notifications/mark-all-read", {
+      method: "PATCH",
+    }),
 };
 
 export default apiRequest;

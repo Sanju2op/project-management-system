@@ -117,7 +117,7 @@ function GroupManagement() {
   const API_BASE_URL = (
     import.meta.env.VITE_API_URL || "http://localhost:5000/api"
   ).replace(/\/admin$/, "");
-
+  const headers = { Authorization: `Bearer ${adminToken}` };
   // Fetch all initial data
   useEffect(() => {
     const fetchData = async () => {
@@ -197,28 +197,27 @@ function GroupManagement() {
 
   // Get available students for a group
   const getAvailableStudents = async () => {
-  if (!selectedGroup) return [];
-  try {
-    const headers = { Authorization: `Bearer ${adminToken}` };
+    if (!selectedGroup) return [];
+    try {
+      const headers = { Authorization: `Bearer ${adminToken}` };
 
-    const response = await axios.get(
-      `${API_BASE_URL}/admin/groups/${selectedGroup._id}/students/available`,
-      { headers }
-    );
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/groups/${selectedGroup._id}/students/available`,
+        { headers }
+      );
 
-    return response.data.data || [];
-  } catch (error) {
-    const errorMsg =
-      error.response?.data?.message ||
-      error.message ||
-      "Failed to fetch available students.";
-    setErrorMessage(errorMsg);
-    setTimeout(() => setErrorMessage(""), 3000);
-    console.error("Error fetching available students:", error);
-    return [];
-  }
-};
-
+      return response.data.data || [];
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch available students.";
+      setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(""), 3000);
+      console.error("Error fetching available students:", error);
+      return [];
+    }
+  };
 
   // Handlers
   const handleBack = () => {
@@ -249,65 +248,66 @@ function GroupManagement() {
   };
 
   const handleCheckboxChange = (studentId) => {
-  setSelectedStudents((prev) =>
-    prev.includes(studentId)
-      ? prev.filter((id) => id !== studentId)
-      : [...prev, studentId]
-  );
-};
-
-
- const handleAddSelectedStudents = async () => {
-  if (selectedStudents.length === 0) {
-    setErrorMessage("Please select at least one student.");
-    setTimeout(() => setErrorMessage(""), 3000);
-    return;
-  }
-
-  const totalAfterAdd = selectedGroup.members.length + selectedStudents.length;
-
-  if (totalAfterAdd > 5 && !forceAddEnabled) {
-  setErrorMessage("Cannot add more than 4 students (enable override to add 5th).");
-  return;
-}
-if (totalAfterAdd > 5) {
-  setErrorMessage("Cannot exceed 5 members total, even with override.");
-  return;
-}
-
-
-  try {
-    const headers = { Authorization: `Bearer ${adminToken}` };
-    await axios.put(
-      `${API_BASE_URL}/admin/update-group/${selectedGroup._id}`,
-      { addStudentIds: selectedStudents },
-      { headers }
+    setSelectedStudents((prev) =>
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId]
     );
+  };
 
-    // Refresh group data
-    const response = await axios.get(
-      `${API_BASE_URL}/admin/get-group/${selectedGroup._id}`,
-      { headers }
-    );
-    setSelectedGroup(response.data.data);
-    setShowAddStudentModal(false);
-    setSelectedStudents([]);
-    setForceAddEnabled(false); // reset override after success
+  const handleAddSelectedStudents = async () => {
+    if (selectedStudents.length === 0) {
+      setErrorMessage("Please select at least one student.");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
 
-    setSuccessMessage(`${selectedStudents.length} student(s) added successfully!`);
-    setTimeout(() => setSuccessMessage(""), 3000);
-  } catch (error) {
-    const errorMsg =
-      error.response?.data?.message ||
-      error.message ||
-      "Failed to add students.";
-    setErrorMessage(errorMsg);
-    setTimeout(() => setErrorMessage(""), 3000);
-    console.error("Error adding students:", error);
-  }
-};
+    const totalAfterAdd =
+      selectedGroup.members.length + selectedStudents.length;
 
+    if (totalAfterAdd > 5 && !forceAddEnabled) {
+      setErrorMessage(
+        "Cannot add more than 4 students (enable override to add 5th)."
+      );
+      return;
+    }
+    if (totalAfterAdd > 5) {
+      setErrorMessage("Cannot exceed 5 members total, even with override.");
+      return;
+    }
 
+    try {
+      const headers = { Authorization: `Bearer ${adminToken}` };
+      await axios.put(
+        `${API_BASE_URL}/admin/update-group/${selectedGroup._id}`,
+        { addStudentIds: selectedStudents },
+        { headers }
+      );
+
+      // Refresh group data
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/get-group/${selectedGroup._id}`,
+        { headers }
+      );
+      setSelectedGroup(response.data.data);
+      setShowAddStudentModal(false);
+      setSelectedStudents([]);
+      setForceAddEnabled(false); // reset override after success
+
+      setSuccessMessage(
+        `${selectedStudents.length} student(s) added successfully!`
+      );
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to add students.";
+      setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(""), 3000);
+      console.error("Error adding students:", error);
+    }
+  };
 
   const openChangeGuideModal = () => {
     setNewGuide(selectedGroup.guide?.name || "");
@@ -322,86 +322,96 @@ if (totalAfterAdd > 5) {
     }
 
     try {
+      const adminToken = localStorage.getItem("token");
+      const API_BASE_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const headers = { Authorization: `Bearer ${adminToken}` };
 
-      // Find guide object by name
+      // ✅ Find the selected guide object
       const selectedGuideObj = guides.find((guide) => guide.name === newGuide);
+
       if (!selectedGuideObj) {
         setErrorMessage("Selected guide not found.");
         setTimeout(() => setErrorMessage(""), 3000);
         return;
       }
 
-      // ✅ Use new API endpoint
-      await axios.put(
-        `${API_BASE_URL}/admin/update-group-guide/${selectedGroup._id}`,
+      // ✅ Step 1: Fetch the current guide limit from backend
+      const limitRes = await axios.get(`${API_BASE_URL}/get-guide-limit`, {
+        headers,
+      });
+      const currentLimit = limitRes.data?.limit ?? 3; // fallback to 3 if not found
+      console.log("🎯 Current Guide Limit:", currentLimit);
+
+      // ✅ Step 2: Try updating the guide for the group
+      const response = await axios.put(
+        `${API_BASE_URL}/update-group-guide/${selectedGroup._id}`,
         { guideId: selectedGuideObj._id },
         { headers }
       );
 
-      // ✅ Refetch updated group details
+      console.log("✅ Group updated successfully:", response.data);
+
+      // ✅ Step 3: Refresh updated group details
+      const groupResponse = await axios.get(
+        `${API_BASE_URL}/get-group/${selectedGroup._id}`,
+        { headers }
+      );
+
+      setSelectedGroup(groupResponse.data.data);
+      setShowChangeGuideModal(false);
+      setSuccessMessage(
+        `Guide for ${selectedGroup.name} changed to ${newGuide}!`
+      );
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      console.error("❌ Error updating group guide:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        "Failed to change guide. Please try again.";
+      setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(""), 4000);
+      setShowChangeGuideModal(false);
+    }
+  };
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete?._id) {
+      setErrorMessage("No student selected for deletion.");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
+
+    try {
+      const headers = { Authorization: `Bearer ${adminToken}` };
+
+      // Call backend to remove student
+      await axios.put(
+        `${API_BASE_URL}/admin/update-group/${selectedGroup._id}`,
+        { removeStudentId: studentToDelete._id },
+        { headers }
+      );
+
+      // Refresh group details
       const response = await axios.get(
         `${API_BASE_URL}/admin/get-group/${selectedGroup._id}`,
         { headers }
       );
-
       setSelectedGroup(response.data.data);
-      setShowChangeGuideModal(false);
-
+      setShowDeleteStudentModal(false);
       setSuccessMessage(
-        `Guide for ${selectedGroup.name} changed to ${newGuide}!`
+        `✅ Student ${studentToDelete.name} removed successfully from ${selectedGroup.name}`
       );
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error) {
       const errorMsg =
         error.response?.data?.message ||
         error.message ||
-        "Failed to change guide.";
+        "Failed to remove student.";
       setErrorMessage(errorMsg);
       setTimeout(() => setErrorMessage(""), 3000);
-      console.error("❌ Error changing guide:", error);
+      console.error("Error removing student:", error);
     }
   };
-
-  const handleDeleteStudent = async () => {
-  if (!studentToDelete?._id) {
-    setErrorMessage("No student selected for deletion.");
-    setTimeout(() => setErrorMessage(""), 3000);
-    return;
-  }
-
-  try {
-    const headers = { Authorization: `Bearer ${adminToken}` };
-
-    // Call backend to remove student
-    await axios.put(
-      `${API_BASE_URL}/admin/update-group/${selectedGroup._id}`,
-      { removeStudentId: studentToDelete._id },
-      { headers }
-    );
-
-    // Refresh group details
-    const response = await axios.get(
-      `${API_BASE_URL}/admin/get-group/${selectedGroup._id}`,
-      { headers }
-    );
-    setSelectedGroup(response.data.data);
-    setShowDeleteStudentModal(false);
-    setSuccessMessage(
-      `✅ Student ${studentToDelete.name} removed successfully from ${selectedGroup.name}`
-    );
-    setTimeout(() => setSuccessMessage(""), 3000);
-  } catch (error) {
-    const errorMsg =
-      error.response?.data?.message ||
-      error.message ||
-      "Failed to remove student.";
-    setErrorMessage(errorMsg);
-    setTimeout(() => setErrorMessage(""), 3000);
-    console.error("Error removing student:", error);
-  }
-};
-
 
   const handleDeleteGroup = async () => {
     try {
@@ -558,24 +568,22 @@ if (totalAfterAdd > 5) {
               Group Members
             </h2>
             <button
-  onClick={handleOpenAddStudentModal}
-  disabled={selectedGroup.members.length >= 5} // only disable at 5
-  className={`flex items-center py-2 px-4 sm:px-3 rounded-lg font-semibold transition duration-200 shadow-neumorphic border border-white/20 backdrop-blur-sm animate-pulse-once ${
-    selectedGroup.members.length < 5
-      ? "bg-gradient-to-r from-accent-teal to-cyan-500 text-white hover:bg-opacity-90 hover:scale-105"
-      : "bg-gray-600/80 text-white/70 cursor-not-allowed"
-  }`}
-  aria-label="Add student"
->
-  <Plus size={20} className="mr-2" />
-  {selectedGroup.members.length >= 4
-    ? "Add Student (Admin Override)"
-    : "Add Student"}
-</button>
-
-
+              onClick={handleOpenAddStudentModal}
+              disabled={selectedGroup.members.length >= 5} // only disable at 5
+              className={`flex items-center py-2 px-4 sm:px-3 rounded-lg font-semibold transition duration-200 shadow-neumorphic border border-white/20 backdrop-blur-sm animate-pulse-once ${
+                selectedGroup.members.length < 5
+                  ? "bg-gradient-to-r from-accent-teal to-cyan-500 text-white hover:bg-opacity-90 hover:scale-105"
+                  : "bg-gray-600/80 text-white/70 cursor-not-allowed"
+              }`}
+              aria-label="Add student"
+            >
+              <Plus size={20} className="mr-2" />
+              {selectedGroup.members.length >= 4
+                ? "Add Student (Admin Override)"
+                : "Add Student"}
+            </button>
           </div>
-          
+
           <div className="flex flex-col space-y-4">
             {selectedGroup.members.map((member, index) => (
               <div
@@ -598,15 +606,14 @@ if (totalAfterAdd > 5) {
                   </div>
                 </div>
                 <button
-  onClick={() => {
-    setStudentToDelete(member);
-    setShowDeleteStudentModal(true);
-  }}
-  className="flex items-center text-red-500 hover:text-red-700 transition"
->
-  <Trash2 size={20} className="mr-1" />
-</button>
-
+                  onClick={() => {
+                    setStudentToDelete(member);
+                    setShowDeleteStudentModal(true);
+                  }}
+                  className="flex items-center text-red-500 hover:text-red-700 transition"
+                >
+                  <Trash2 size={20} className="mr-1" />
+                </button>
               </div>
             ))}
           </div>
@@ -680,79 +687,79 @@ if (totalAfterAdd > 5) {
         {showAddStudentModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-light-glass backdrop-blur-sm p-8 rounded-2xl shadow-neumorphic border border-white/20 w-full max-w-md relative transform transition-all duration-200 scale-100 hover:scale-102 max-h-[80vh] overflow-y-auto">
-              
               <h2 className="text-2xl font-bold text-white mb-6 text-center tracking-tight">
                 Add Students
               </h2>
               {/* ⚙️ Admin Override Toggle */}
-<div className="mt-5 flex justify-between items-center border-t border-white/20 pt-3">
-  <p className="text-sm text-white/70">
-    Default limit: <span className="font-semibold text-white">4 members</span>
-  </p>
-  <button
-    onClick={() => setForceAddEnabled((prev) => !prev)}
-    className={`px-3 py-1 rounded text-sm font-semibold transition ${
-      forceAddEnabled
-        ? "bg-red-600 hover:bg-red-700 text-white"
-        : "bg-white/20 hover:bg-white/30 text-white/80"
-    }`}
-  >
-    {forceAddEnabled ? "⚠️ Override Enabled" : "Enable Admin Override"}
-  </button>
-  
-</div>
+              <div className="mt-5 flex justify-between items-center border-t border-white/20 pt-3">
+                <p className="text-sm text-white/70">
+                  Default limit:{" "}
+                  <span className="font-semibold text-white">4 members</span>
+                </p>
+                <button
+                  onClick={() => setForceAddEnabled((prev) => !prev)}
+                  className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                    forceAddEnabled
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "bg-white/20 hover:bg-white/30 text-white/80"
+                  }`}
+                >
+                  {forceAddEnabled
+                    ? "⚠️ Override Enabled"
+                    : "Enable Admin Override"}
+                </button>
+              </div>
 
               <p className="text-white/80 text-center mb-6">
-                Select students to add (Max: { - selectedGroup.members.length}{" "}
+                Select students to add (Max: {4 - selectedGroup.members.length}{" "}
                 more)
               </p>
-              
-{selectedGroup.members.length === 4 && (
-  <p className="text-sm text-yellow-400 mt-2">
-    ⚠️ 4 members reached use “Admin Override”to add one more.
-  </p>
-)}
+
+              {selectedGroup.members.length === 4 && (
+                <p className="text-sm text-yellow-400 mt-2">
+                  ⚠️ 4 members reached use “Admin Override”to add one more.
+                </p>
+              )}
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {availableStudents.length > 0 ? (
-  availableStudents.map((student) => (
-    <div
-      key={student._id}
-      className="flex items-center justify-between bg-white/10 p-4 rounded-lg"
-    >
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id={`student-${student._id}`}
-          checked={selectedStudents.includes(student._id)}
-          disabled={
-  !forceAddEnabled &&
-  selectedStudents.length >= 4 - selectedGroup.members.length &&
-  !selectedStudents.includes(student._id)
-}
-
-          onChange={() => handleCheckboxChange(student._id)}
-          className="mr-4 w-4 h-4 text-accent-teal bg-white/10 border-white/20 rounded focus:ring-accent-teal focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <div>
-          <span className="font-semibold text-white">
-            {student.name}
-          </span>
-          <div className="text-sm text-white/80">
-            {student.enrollmentNumber}
-          </div>
-          <div className="text-xs text-white/60">
-            {student.className}
-          </div>
-        </div>
-      </div>
-    </div>
-  ))
-) : (
-  <p className="text-white/70 text-center">
-    No eligible students available
-  </p>
-)}
-
+                  availableStudents.map((student) => (
+                    <div
+                      key={student._id}
+                      className="flex items-center justify-between bg-white/10 p-4 rounded-lg"
+                    >
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`student-${student._id}`}
+                          checked={selectedStudents.includes(student._id)}
+                          disabled={
+                            !forceAddEnabled &&
+                            selectedStudents.length >=
+                              4 - selectedGroup.members.length &&
+                            !selectedStudents.includes(student._id)
+                          }
+                          onChange={() => handleCheckboxChange(student._id)}
+                          className="mr-4 w-4 h-4 text-accent-teal bg-white/10 border-white/20 rounded focus:ring-accent-teal focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div>
+                          <span className="font-semibold text-white">
+                            {student.name}
+                          </span>
+                          <div className="text-sm text-white/80">
+                            {student.enrollmentNumber}
+                          </div>
+                          <div className="text-xs text-white/60">
+                            {student.className}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-white/70 text-center">
+                    No eligible students available
+                  </p>
+                )}
               </div>
               {availableStudents.length > 0 && (
                 <div className="flex justify-end gap-4 mt-6">
@@ -781,29 +788,28 @@ if (totalAfterAdd > 5) {
 
         {/* Delete Student Confirmation Modal (exact from design) */}
         {showDeleteStudentModal && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-    <div className="bg-white/10 border border-white/20 p-6 rounded-lg text-white shadow-xl">
-      <h3 className="text-lg font-semibold mb-4">
-        Remove {studentToDelete?.name} from this group?
-      </h3>
-      <div className="flex justify-end space-x-3">
-        <button
-          onClick={() => setShowDeleteStudentModal(false)}
-          className="px-4 py-2 rounded bg-gray-500/70 hover:bg-gray-600"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleDeleteStudent}
-          className="px-4 py-2 rounded bg-red-600 hover:bg-red-700"
-        >
-          Remove
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+          <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+            <div className="bg-white/10 border border-white/20 p-6 rounded-lg text-white shadow-xl">
+              <h3 className="text-lg font-semibold mb-4">
+                Remove {studentToDelete?.name} from this group?
+              </h3>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteStudentModal(false)}
+                  className="px-4 py-2 rounded bg-gray-500/70 hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteStudent}
+                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-700"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Delete Group Confirmation Modal (exact from design) */}
         {showDeleteModal && (

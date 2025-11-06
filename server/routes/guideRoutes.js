@@ -23,8 +23,7 @@ import {
   listProjectApprovalsForGuide,
   approveProjectProposal,
   rejectProjectProposal,
-} from "../controllers/guideController.js"; 
-
+} from "../controllers/guideController.js";
 
 const router = express.Router();
 
@@ -117,4 +116,3 @@ guidePanelRouter.put(
 router.use("/guide-panel", guidePanelRouter);
 
 export default router;
-    

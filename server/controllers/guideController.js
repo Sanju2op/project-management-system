@@ -42,6 +42,18 @@ export const registerGuide = async (req, res) => {
       expertise,
       phone,
     });
+    try {
+      await Notification.create({
+        type: "guide",
+        message: `New guide "${newGuide.name}" registered.`,
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.warn(
+        "Failed to create notification for guide registration:",
+        notifErr.message
+      );
+    }
 
     // 4️⃣ Generate JWT token
     const token = jwt.sign({ id: newGuide._id }, process.env.JWT_SECRET, {
@@ -494,7 +506,8 @@ export const getGuideGroups = async (req, res) => {
       technology: g.projectTechnology || "",
       year: g.year,
       course:
-        (Array.isArray(g.membersSnapshot) && g.membersSnapshot[0]?.divisionCourse) ||
+        (Array.isArray(g.membersSnapshot) &&
+          g.membersSnapshot[0]?.divisionCourse) ||
         null,
       maxMembers: g.membersSnapshot?.length || 0,
       currentMembers: (g.students || []).length,
@@ -593,7 +606,8 @@ export const getGroupByIdForGuide = async (req, res) => {
       technology: group.projectTechnology || "",
       year: group.year,
       course:
-        (Array.isArray(group.membersSnapshot) && group.membersSnapshot[0]?.divisionCourse) ||
+        (Array.isArray(group.membersSnapshot) &&
+          group.membersSnapshot[0]?.divisionCourse) ||
         null,
       maxMembers: group.membersSnapshot?.length || 0,
       currentMembers: (group.students || []).length,
