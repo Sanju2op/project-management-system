@@ -14,6 +14,7 @@ import CourseAnnouncement from "../../models/courseAnnouncement.js";
 import ExamSchedule from "../../models/examSchedule.js";
 import GuideAnnouncement from "../../models/guideAnnouncement.js";
 import ProjectEvaluation from "../../models/projectEvaluation.js";
+import SystemSetting from "../../models/SystemSetting.js";
 
 const generateToken = (id) => {
   return jwt.sign({ id, role: "admin" }, process.env.JWT_SECRET, {
@@ -722,7 +723,6 @@ export const getAvailableStudentsForGroup = async (req, res) => {
   }
 };
 
-
 // GET /api/admin/get-groups (with course, semester, year filters)
 export const getGroups = async (req, res) => {
   try {
@@ -798,7 +798,9 @@ export const updateGroup = async (req, res) => {
       .populate("division", "course semester year");
 
     if (!group) {
-      return res.status(404).json({ success: false, message: "Group not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Group not found" });
     }
 
     // 2️⃣ Handle guide change
@@ -808,82 +810,95 @@ export const updateGroup = async (req, res) => {
 
     // 3️⃣ Handle adding new students
     // 3️⃣ Handle adding new students
-if (Array.isArray(addStudentIds) && addStudentIds.length > 0) {
-  const currentIds = group.students.map((s) => s._id.toString());
-  const uniqueNewIds = addStudentIds.filter((id) => !currentIds.includes(id));
+    if (Array.isArray(addStudentIds) && addStudentIds.length > 0) {
+      const currentIds = group.students.map((s) => s._id.toString());
+      const uniqueNewIds = addStudentIds.filter(
+        (id) => !currentIds.includes(id)
+      );
 
-  const newStudents = await Student.find({ _id: { $in: uniqueNewIds } })
-    .populate("division", "course semester");
+      const newStudents = await Student.find({
+        _id: { $in: uniqueNewIds },
+      }).populate("division", "course semester");
 
-  const currentCount = group.students.length;
-  const totalAfterAdd = currentCount + newStudents.length;
+      const currentCount = group.students.length;
+      const totalAfterAdd = currentCount + newStudents.length;
 
-  // ✅ Default max = 4
-  if (totalAfterAdd > 4) {
-    // allow admin override up to 5
-    if (totalAfterAdd > 5) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot exceed 5 members total. (4 normal + 1 admin override)",
-      });
-    } else {
-      console.log("⚠️ Admin override: Adding 5th member to group:", group.name);
+      // ✅ Default max = 4
+      if (totalAfterAdd > 4) {
+        // allow admin override up to 5
+        if (totalAfterAdd > 5) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Cannot exceed 5 members total. (4 normal + 1 admin override)",
+          });
+        } else {
+          console.log(
+            "⚠️ Admin override: Adding 5th member to group:",
+            group.name
+          );
+        }
+      }
+
+      // Add to group
+      group.students.push(...newStudents.map((s) => s._id));
+
+      // Add to membersSnapshot, marking 5th as override
+      group.membersSnapshot.push(
+        ...newStudents.map((s, idx) => ({
+          studentRef: s._id,
+          enrollmentNumber: s.enrollmentNumber,
+          name: s.name,
+          joinedAt: new Date(),
+          divisionCourse: s.division.course,
+          divisionSemester: s.division.semester,
+          override: totalAfterAdd > 4 ? true : false, // ⚠️ mark as override
+        }))
+      );
     }
-  }
-
-  // Add to group
-  group.students.push(...newStudents.map((s) => s._id));
-
-  // Add to membersSnapshot, marking 5th as override
-  group.membersSnapshot.push(
-    ...newStudents.map((s, idx) => ({
-      studentRef: s._id,
-      enrollmentNumber: s.enrollmentNumber,
-      name: s.name,
-      joinedAt: new Date(),
-      divisionCourse: s.division.course,
-      divisionSemester: s.division.semester,
-      override: totalAfterAdd > 4 ? true : false, // ⚠️ mark as override
-    }))
-  );
-}
-
 
     // 4️⃣ Handle removing a student
 
     // 4️⃣ Handle removing a student (handles ObjectId, object, or string)
-if (removeStudentId) {
-  const removeIdStr = removeStudentId.toString();
-  console.log("🧾 Removing student ID:", removeIdStr);
+    if (removeStudentId) {
+      const removeIdStr = removeStudentId.toString();
+      console.log("🧾 Removing student ID:", removeIdStr);
 
-  // 🔸 Normalize IDs before filtering
-  const normalizeId = (id) => {
-    if (!id) return null;
-    if (typeof id === "string") return id;
-    if (id._id) return id._id.toString();
-    return id.toString();
-  };
+      // 🔸 Normalize IDs before filtering
+      const normalizeId = (id) => {
+        if (!id) return null;
+        if (typeof id === "string") return id;
+        if (id._id) return id._id.toString();
+        return id.toString();
+      };
 
-  // 🔹 Filter from students array
-  const beforeStudents = group.students.length;
-  group.students = group.students.filter(
-    (sid) => normalizeId(sid) !== removeIdStr
-  );
-  console.log("📉 Students reduced:", beforeStudents, "→", group.students.length);
+      // 🔹 Filter from students array
+      const beforeStudents = group.students.length;
+      group.students = group.students.filter(
+        (sid) => normalizeId(sid) !== removeIdStr
+      );
+      console.log(
+        "📉 Students reduced:",
+        beforeStudents,
+        "→",
+        group.students.length
+      );
 
-  // 🔹 Filter from membersSnapshot
-  const beforeSnapshot = group.membersSnapshot.length;
-  group.membersSnapshot = group.membersSnapshot.filter(
-    (m) => normalizeId(m.studentRef) !== removeIdStr
-  );
-  console.log("📉 Snapshot reduced:", beforeSnapshot, "→", group.membersSnapshot.length);
+      // 🔹 Filter from membersSnapshot
+      const beforeSnapshot = group.membersSnapshot.length;
+      group.membersSnapshot = group.membersSnapshot.filter(
+        (m) => normalizeId(m.studentRef) !== removeIdStr
+      );
+      console.log(
+        "📉 Snapshot reduced:",
+        beforeSnapshot,
+        "→",
+        group.membersSnapshot.length
+      );
 
-  // 🔹 Unlink student record
-  await Student.findByIdAndUpdate(removeStudentId, { group: null });
-}
-
-
+      // 🔹 Unlink student record
+      await Student.findByIdAndUpdate(removeStudentId, { group: null });
+    }
 
     // 5️⃣ Save changes
     await group.save();
@@ -917,58 +932,57 @@ if (removeStudentId) {
   }
 };
 
+// export const updateGroupGuide = async (req, res) => {
+//   try {
+//     const { id } = req.params; // group ID
+//     const { guideId } = req.body; // new guide ID
 
-export const updateGroupGuide = async (req, res) => {
-  try {
-    const { id } = req.params; // group ID
-    const { guideId } = req.body; // new guide ID
+//     if (!guideId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Guide ID is required.",
+//       });
+//     }
 
-    if (!guideId) {
-      return res.status(400).json({
-        success: false,
-        message: "Guide ID is required.",
-      });
-    }
+//     // Optional: Validate guide exists
+//     const guideExists = await Guide.findById(guideId);
+//     if (!guideExists) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Guide not found.",
+//       });
+//     }
 
-    // Optional: Validate guide exists
-    const guideExists = await Guide.findById(guideId);
-    if (!guideExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Guide not found.",
-      });
-    }
+//     // Update group's guide
+//     const updatedGroup = await Group.findByIdAndUpdate(
+//       id,
+//       { guide: guideId },
+//       { new: true, runValidators: true }
+//     )
+//       .populate("guide", "name email expertise phone")
+//       .populate("division", "name")
+//       .populate("students", "name enrollmentNumber");
 
-    // Update group's guide
-    const updatedGroup = await Group.findByIdAndUpdate(
-      id,
-      { guide: guideId },
-      { new: true, runValidators: true }
-    )
-      .populate("guide", "name email expertise phone")
-      .populate("division", "name")
-      .populate("students", "name enrollmentNumber");
+//     if (!updatedGroup) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Group not found.",
+//       });
+//     }
 
-    if (!updatedGroup) {
-      return res.status(404).json({
-        success: false,
-        message: "Group not found.",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Group guide updated successfully.",
-      data: updatedGroup,
-    });
-  } catch (err) {
-    console.error("❌ Error updating group guide:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error while updating group guide.",
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       message: "Group guide updated successfully.",
+//       data: updatedGroup,
+//     });
+//   } catch (err) {
+//     console.error("❌ Error updating group guide:", err.message);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error while updating group guide.",
+//     });
+//   }
+// };
 
 /**
  * @route   GET /api/admin/get-evaluation-params
@@ -2314,7 +2328,7 @@ export const getAllStudents = async (req, res) => {
 
     let students = await Student.find(filter)
       .populate("division", "course semester year")
-    .populate("group", "name projectTitle")
+      .populate("group", "name projectTitle")
       .select(
         "name enrollmentNumber email phone division group isRegistered isActive"
       )
@@ -2505,5 +2519,155 @@ export const updateStudent = async (req, res) => {
       success: false,
       message: "Server error while updating student",
     });
+  }
+};
+
+// ✅ Get current limit (helper)
+export const getGuideLimit = async (req, res) => {
+  try {
+    const setting = await SystemSetting.findOne({ key: "guideLimit" });
+    const value = setting ? setting.value : 3; // default = 3
+    res.status(200).json({ success: true, limit: value });
+  } catch (err) {
+    console.error("❌ Error fetching guide limit:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// 🔧 Helper function — no res/status, just returns number
+const fetchGuideLimit = async () => {
+  const setting = await SystemSetting.findOne({ key: "guideLimit" });
+  return setting ? setting.value : 3; // default 3 if not found
+};
+
+// ✅ Set or update guide limit
+export const setGuideLimit = async (req, res) => {
+  try {
+    const { limit } = req.body;
+    if (!limit || limit < 1) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid limit value" });
+    }
+
+    const updated = await SystemSetting.findOneAndUpdate(
+      { key: "guideLimit" },
+      { value: limit },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Guide limit set to ${limit}`,
+      data: updated,
+    });
+  } catch (err) {
+    console.error("❌ Error in setGuideLimit:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ updateGroupGuide controller
+export const updateGroupGuide = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { guideId } = req.body;
+
+    if (!guideId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Guide ID is required." });
+    }
+
+    const guideExists = await Guide.findById(guideId);
+    if (!guideExists) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Guide not found." });
+    }
+
+    // ✅ Use helper instead of API function
+    const GUIDE_GROUP_LIMIT = await fetchGuideLimit();
+
+    const assignedGroups = await Group.find({ guide: guideId });
+    if (assignedGroups.length >= GUIDE_GROUP_LIMIT) {
+      return res.status(400).json({
+        success: false,
+        message: `This guide already has ${GUIDE_GROUP_LIMIT} group(s) assigned.`,
+      });
+    }
+
+    const updatedGroup = await Group.findByIdAndUpdate(
+      id,
+      { guide: guideId },
+      { new: true, runValidators: true }
+    )
+      .populate("guide", "name email expertise phone")
+      .populate("division", "name")
+      .populate("students", "name enrollmentNumber");
+
+    if (!updatedGroup) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Group not found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Group guide updated successfully.",
+      data: updatedGroup,
+    });
+  } catch (err) {
+    console.error("❌ Error in updateGroupGuide:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating group guide.",
+      error: err.message,
+    });
+  }
+};
+
+import Notification from "../../models/Notification.js";
+
+// ✅ Get all notifications
+export const getAllNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: notifications });
+  } catch (err) {
+    console.error("❌ Error fetching notifications:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Create notification
+export const createNotification = async (req, res) => {
+  try {
+    const { type, message } = req.body;
+    const newNotification = await Notification.create({ type, message });
+    res.status(201).json({ success: true, data: newNotification });
+  } catch (err) {
+    console.error("❌ Error creating notification:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Mark single as read
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ success: true, message: "Marked as read" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Mark all as read
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    await Notification.updateMany({}, { isRead: true });
+    res.json({ success: true, message: "All marked as read" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -87,9 +87,9 @@ export const evaluationParameterAPI = {
 
 // ✅ Admin API
 export const adminAPI = {
-  getProfile: () => api.get("/admin/profile"),
-  updateProfile: (payload) => api.put("/admin/profile", payload),
-  changePassword: (payload) => api.post("/admin/change-password", payload),
+  getProfile: () => api.get("/profile"),
+  updateProfile: (payload) => api.put("/profile", payload),
+  changePassword: (payload) => api.post("/change-password", payload),
 };
 
 // ✅ Exam Schedules API
@@ -122,6 +122,14 @@ export const guideAnnouncementAPI = {
   create: (payload) => api.post("/guide-announcements", payload),
   update: (id, payload) => api.put(`/guide-announcements/${id}`, payload),
   delete: (id) => api.delete(`/guide-announcements/${id}`),
+};
+
+// inside api.js (where `api` axios instance exists)
+export const notificationAPI = {
+  getAll: () => api.get("/notifications"), // GET /api/notifications
+  create: (payload) => api.post("/notifications", payload),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch("/notifications/mark-all-read"),
 };
 
 export default api;

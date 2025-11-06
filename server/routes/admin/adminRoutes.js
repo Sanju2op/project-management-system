@@ -21,6 +21,7 @@ import {
   getAvailableStudents,
   getStudentsByGroup,
   updateGroup,
+  setGuideLimit,
   deleteGroup,
   updateGroupGuide,
   getEvaluationParams,
@@ -54,8 +55,14 @@ import {
   getAllStudents,
   getStudentById,
   updateStudent,
+  getGuideLimit,
+  getAllNotifications,
+  createNotification,
+  markNotificationAsRead,
+  markAllNotificationsRead,
   // updateGroupDetails,
 } from "../../controllers/admin/adminController.js";
+
 import { protectAdmin } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
@@ -246,5 +253,15 @@ router.put("/students/:id", updateStudent);
 
 // DELETE /api/admin/students/:id
 router.delete("/students/:id", removeStudentById);
+
+router.put("/set-guide-limit", setGuideLimit);
+
+router.get("/get-guide-limit", getGuideLimit);
+
+// ✅ Notification routes
+router.get("/notifications", getAllNotifications);
+router.post("/notifications", createNotification);
+router.patch("/notifications/:id/read", markNotificationAsRead);
+router.patch("/notifications/mark-all-read", markAllNotificationsRead);
 
 export default router;

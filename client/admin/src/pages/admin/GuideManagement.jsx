@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
@@ -21,6 +22,7 @@ import { toast } from "react-toastify";
 import Input from "../../components/UI/Input";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; // Explicitly import autoTable
+import { notificationAPI } from "../../services/api"; // adjust path if needed
 
 // Simple error boundary
 class ErrorBoundary extends React.Component {
@@ -105,7 +107,72 @@ function GuideManagement() {
       setLoading(false);
     }
   };
+  // ✨ Add this new code block near top of the component (after useState declarations)
+  const [guideLimit, setGuideLimit] = useState(null);
 
+  const [currentLimit, setCurrentLimit] = useState(null);
+
+  const adminToken = localStorage.getItem("token");
+  const API_BASE_URL = (
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+  ).replace(/\/admin$/, "");
+
+  const handleSetLimit = async () => {
+    console.log("Set Limit button clicked!");
+    const API_BASE_URL = (
+      import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+    ).replace(/\/admin$/, "");
+
+    const adminToken = localStorage.getItem("token");
+
+    try {
+      const res = await axios.put(
+        `${API_BASE_URL}/admin/set-guide-limit`,
+        { limit: guideLimit },
+        {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        }
+      );
+      console.log("Response received:", res.data);
+      toast.success(res.data.message || `Guide limit updated to ${guideLimit}`);
+
+      // ✅ Update UI text below button
+      setCurrentLimit(guideLimit);
+    } catch (err) {
+      console.error("Error in API:", err);
+      toast.error(
+        err.response?.data?.message || err.message || "Failed to update limit"
+      );
+    }
+  };
+
+  useEffect(() => {
+    const fetchGuideLimit = async () => {
+      try {
+        console.log("Fetching current guide limit...");
+        const res = await axios.get(`${API_BASE_URL}/admin/get-guide-limit`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+
+        console.log("Fetched limit API response:", res.data);
+
+        if (
+          res.data &&
+          res.data.success &&
+          typeof res.data.limit !== "undefined"
+        ) {
+          setGuideLimit(res.data.limit);
+          setCurrentLimit(res.data.limit);
+        } else {
+          console.warn("⚠️ Invalid API response, using default limit 3");
+        }
+      } catch (err) {
+        console.error("❌ Error fetching guide limit:", err);
+      }
+    };
+
+    fetchGuideLimit();
+  }, []);
   useEffect(() => {
     fetchGuides();
   }, []);
@@ -190,6 +257,10 @@ function GuideManagement() {
     }
   };
 
+  // At top of file: add this import (near other api imports)
+
+  // -------------------------
+  // Replace existing handleSaveNewGuide with this:
   const handleSaveNewGuide = async (e) => {
     e.preventDefault();
     if (
@@ -202,12 +273,30 @@ function GuideManagement() {
       return;
     }
     try {
-      await guideAPI.add(newGuide);
+      // 1) create guide via API
+      const { data: created } = await guideAPI.add(newGuide);
+
+      // 2) show success toast and close modal
       toast.success("Guide added successfully!");
       setShowAddGuideModal(false);
+
+      // 3) create a notification for admins (optional: if your notificationAPI path differs, update)
+      // notificationAPI.create expects { type, message } (adjust to your API)
+      try {
+        await notificationAPI.create({
+          type: "guide",
+          message: `New guide "${newGuide.name}" registered and needs review.`,
+        });
+      } catch (notifErr) {
+        // notification failure should not block the main flow
+        console.warn("Notification create failed:", notifErr);
+      }
+
+      // 4) refresh guides
       fetchGuides();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add guide.");
+      console.error("Error creating guide:", err);
     }
   };
 
@@ -430,29 +519,60 @@ function GuideManagement() {
                 Manage Guides
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleShareAsPDF}
-                className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
-                aria-label="Share Guide List as PDF"
-              >
-                <Share size={20} className="mr-2" /> Share
-              </button>
-              <button
-                onClick={handleViewRequests}
-                className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
-                aria-label={`View Pending Requests (${pendingRequests.length})`}
-              >
-                <UserCheck size={20} className="mr-2" /> Requests (
-                {pendingRequests.length})
-              </button>
-              <button
-                onClick={handleAddGuide}
-                className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
-                aria-label="Add New Guide"
-              >
-                <Plus size={20} className="mr-2" /> Add Guide
-              </button>
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center space-x-4">
+                {/* 🎯 Set Guide Limit Input */}
+                {guideLimit === null ? (
+                  <p className="text-gray-500">Loading limit...</p>
+                ) : (
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={guideLimit}
+                    onChange={(e) => setGuideLimit(Number(e.target.value))}
+                    placeholder="Enter limit"
+                    className="px-3 py-2 rounded-lg text-black w-24 text-center border border-gray-400 bg-white shadow-sm"
+                  />
+                )}
+
+                <button
+                  onClick={handleSetLimit}
+                  className="bg-teal-500 px-4 py-2 rounded-lg text-white font-semibold hover:bg-teal-600 transition"
+                >
+                  Set Limit
+                </button>
+
+                {/* Existing buttons */}
+                <button
+                  onClick={handleShareAsPDF}
+                  className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
+                >
+                  <Share size={20} className="mr-2" /> Share
+                </button>
+
+                <button
+                  onClick={handleViewRequests}
+                  className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
+                >
+                  <UserCheck size={20} className="mr-2" /> Requests (
+                  {pendingRequests.length})
+                </button>
+
+                <button
+                  onClick={handleAddGuide}
+                  className="flex items-center bg-gradient-to-r from-cyan-500 to-teal-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg animate-pulse-once"
+                >
+                  <Plus size={20} className="mr-2" /> Add Guide
+                </button>
+              </div>
+
+              {/* ✅ Display current guide limit */}
+              {currentLimit !== null && (
+                <p className="text-sm text-green-700 mt-1 font-semibold">
+                  Current Limit: {currentLimit}
+                </p>
+              )}
             </div>
           </div>
         </div>
