@@ -14,6 +14,7 @@ import {
   updateGuideStatus,
   getActiveGuides,
   deleteGuide,
+  getGroupsByGuide,
   getGroupsByYearOrCourse,
   getDivisions,
   getGroupById,
@@ -68,6 +69,13 @@ import {
   saveAllProjectEvaluations,
 } from "../../controllers/evaluationController.js";
 
+import {
+  getAllExpertise,
+  addExpertise,
+  updateExpertise,
+  deleteExpertise,
+} from "../../controllers/expertiseController.js";
+
 import { protectAdmin } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
@@ -114,6 +122,9 @@ router.get("/active-guides", getActiveGuides);
 
 // DELETE /api/admin/guides/:id
 router.delete("/guides/:id", deleteGuide);
+
+// get groups for the guides
+router.get("/admin/get-groups-by-guide/:guideId", getGroupsByGuide);
 
 // GET /api/admin/get-groups?year=2025
 router.get("/get-groups", getGroupsByYearOrCourse);
@@ -285,5 +296,11 @@ router.post(
 
 // GET /api/admin/groups/:groupId/project-evaluations
 router.get("/groups/:groupId/project-evaluations", getGroupProjectEvaluations);
+
+// 🧠 Expertise Management Routes
+router.get("/expertise", protectAdmin, getAllExpertise);
+router.post("/expertise", protectAdmin, addExpertise);
+router.put("/expertise/:id", protectAdmin, updateExpertise);
+router.delete("/expertise/:id", protectAdmin, deleteExpertise);
 
 export default router;

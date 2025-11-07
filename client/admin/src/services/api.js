@@ -6,7 +6,8 @@ const api = axios.create({
 
 // ✅ Add Authorization header automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // Consistent token key
+  const token =
+    localStorage.getItem("adminToken") || localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -132,6 +133,13 @@ export const notificationAPI = {
   create: (payload) => api.post("/notifications", payload),
   markRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllRead: () => api.patch("/notifications/mark-all-read"),
+};
+
+export const expertiseAPI = {
+  getAll: () => api.get("/expertise"),
+  create: (data) => api.post("/expertise", data),
+  update: (id, data) => api.put(`/expertise/${id}`, data),
+  delete: (id) => api.delete(`/expertise/${id}`),
 };
 
 export default api;

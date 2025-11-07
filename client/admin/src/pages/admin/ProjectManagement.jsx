@@ -73,6 +73,7 @@ const FilterDropdown = ({ title, options, selected, onSelect }) => {
 
 function ProjectManagement() {
   const navigate = useNavigate();
+
   // DATA LOGIC PRESERVED: Original state initialization
   const [projects, setProjects] = useState([]);
   const [evaluationParameters, setEvaluationParameters] = useState([]);
@@ -236,7 +237,6 @@ function ProjectManagement() {
   });
 
   // HANDLERS CONFIRMED TO BE CORRECT
-  const handleBack = () => navigate("/admin/dashboard");
   const handleViewDetails = (group) => {
     setSelectedGroup(group);
   };
@@ -462,8 +462,7 @@ function ProjectManagement() {
     <div className="w-full max-w-7xl mx-auto py-12">
       <div className="flex justify-between items-center mb-10">
         <button
-          // ACTION CONFIRMED: Calls navigate("/admin/dashboard")
-          onClick={handleBack}
+          onClick={() => navigate("/admin/dashboard")}
           className="flex items-center bg-gray-700/80 text-white py-3 px-6 rounded-xl font-bold hover:bg-gray-700 hover:scale-[1.02] transition shadow-lg"
         >
           <ChevronLeft size={24} className="mr-2" /> Dashboard

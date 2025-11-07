@@ -938,58 +938,6 @@ export const updateGroup = async (req, res) => {
   }
 };
 
-// export const updateGroupGuide = async (req, res) => {
-//   try {
-//     const { id } = req.params; // group ID
-//     const { guideId } = req.body; // new guide ID
-
-//     if (!guideId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Guide ID is required.",
-//       });
-//     }
-
-//     // Optional: Validate guide exists
-//     const guideExists = await Guide.findById(guideId);
-//     if (!guideExists) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Guide not found.",
-//       });
-//     }
-
-//     // Update group's guide
-//     const updatedGroup = await Group.findByIdAndUpdate(
-//       id,
-//       { guide: guideId },
-//       { new: true, runValidators: true }
-//     )
-//       .populate("guide", "name email expertise phone")
-//       .populate("division", "name")
-//       .populate("students", "name enrollmentNumber");
-
-//     if (!updatedGroup) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Group not found.",
-//       });
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Group guide updated successfully.",
-//       data: updatedGroup,
-//     });
-//   } catch (err) {
-//     console.error("❌ Error updating group guide:", err.message);
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error while updating group guide.",
-//     });
-//   }
-// };
-
 /**
  * @route   GET /api/admin/get-evaluation-params
  * @desc    Fetch all evaluation parameters
@@ -2789,6 +2737,40 @@ export const getGroupProjectEvaluations = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error while fetching evaluations",
+    });
+  }
+};
+
+// ✅ GET /api/admin/get-groups-by-guide/:guideId
+// Fetch all groups assigned to a specific guide
+export const getGroupsByGuide = async (req, res) => {
+  try {
+    const { guideId } = req.params;
+
+    // Check if the guide exists
+    const guide = await Guide.findById(guideId);
+    if (!guide) {
+      return res.status(404).json({
+        success: false,
+        message: "Guide not found",
+      });
+    }
+
+    // Fetch all groups where this guide is assigned
+    const groups = await Group.find({ guide: guideId })
+      .select("name projectTitle status year")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: groups.length,
+      data: groups,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching groups for guide:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching guide groups",
     });
   }
 };
