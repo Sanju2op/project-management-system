@@ -6,7 +6,8 @@ const api = axios.create({
 
 // ✅ Add Authorization header automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // Consistent token key
+  const token =
+    localStorage.getItem("adminToken") || localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -80,6 +81,7 @@ export const enrollmentAPI = {
 // ✅ Evaluation Parameters API
 export const evaluationParameterAPI = {
   getAll: () => api.get("/get-evaluation-params"),
+
   create: (payload) => api.post("/add-evaluation-param", payload),
   update: (id, payload) => api.put(`/update-evaluation-param/${id}`, payload),
   delete: (id) => api.delete(`/delete-evaluation-param/${id}`),
@@ -109,13 +111,14 @@ export const courseAnnouncementAPI = {
 };
 
 // ✅ Project Evaluations API
-export const projectEvaluationAPI = {
-  getAll: () => api.get("/get-project-evaluations"),
-  getByProject: (projectId) => api.get(`/get-project-evaluation/${projectId}`),
-  update: (projectId, parameterId, payload) =>
-    api.put(`/project-evaluations/${projectId}/${parameterId}`, payload),
-};
+// services/api.js (या जहाँ भी है)
 
+// ✅ Project Evaluations API – FINAL & FULLY WORKING
+export const projectEvaluationAPI = {
+  getByProject: (groupId) => api.get(`/get-group-evaluation/${groupId}`),
+  saveAll: (groupId, evaluations) =>
+    api.post(`/save-all-project-evaluations/${groupId}`, { evaluations }),
+};
 // ✅ Guide Announcements API
 export const guideAnnouncementAPI = {
   getAll: () => api.get("/guide-announcements"),
@@ -130,6 +133,13 @@ export const notificationAPI = {
   create: (payload) => api.post("/notifications", payload),
   markRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllRead: () => api.patch("/notifications/mark-all-read"),
+};
+
+export const expertiseAPI = {
+  getAll: () => api.get("/expertise"),
+  create: (data) => api.post("/expertise", data),
+  update: (id, data) => api.put(`/expertise/${id}`, data),
+  delete: (id) => api.delete(`/expertise/${id}`),
 };
 
 export default api;

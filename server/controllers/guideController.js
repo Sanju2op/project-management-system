@@ -3,6 +3,7 @@ import Guide from "../models/guide.js";
 import Group from "../models/group.js";
 import Student from "../models/student.js";
 import GuideAnnouncement from "../models/guideAnnouncement.js";
+import EvaluationParameter from "../models/evaluationParameter.js";
 // import CourseAnnouncement from "../models/courseAnnouncement.js";
 // import ExamSchedule from "../models/examSchedule.js";
 
@@ -711,31 +712,80 @@ export const deleteGroupForGuide = async (req, res) => {
 /**
  * GET /api/guide-panel/groups - list groups for current guide
  */
+// ----------------------------------------------------------------------
+// List all groups for the logged-in guide (with member IDs populated)
+// ----------------------------------------------------------------------
 export const listGuidePanelGroups = async (req, res) => {
   try {
-    // Set guide ID from protectGuide middleware into params so getGuideGroups controller can be reused
-    req.params.id = req.guide._id.toString();
-    // This is a re-export/wrapper; in a real app, you might abstract the core logic
-    // into a service or util and call it from both guideController and here.
-    return getGuideGroups(req, res);
+    const guideId = req.guide._id.toString();
+
+    const groups = await Group.find({ guide: guideId })
+      .populate({
+        path: "students",
+        select: "_id name email enrollmentNumber phone",
+        model: Student,
+      })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: groups,
+    });
   } catch (error) {
     console.error("Error listing guide-panel groups:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while listing groups.",
+    });
   }
 };
 
 /**
  * GET /api/guide-panel/groups/:groupId - group details for current guide
  */
+// ----------------------------------------------------------------------
+// Get full details of one group (with member IDs populated)
+// ----------------------------------------------------------------------
+
+// ✅ FINAL FIX: Always populate `students` properly with real MongoDB IDs
 export const getGuidePanelGroupDetails = async (req, res) => {
   try {
-    // Set guide ID from protectGuide middleware into params so getGroupByIdForGuide controller can be reused
-    req.params.id = req.guide._id.toString();
-    // This is a re-export/wrapper; see note above.
-    return getGroupByIdForGuide(req, res);
+    const guideId = req.guide._id.toString();
+
+    const group = await Group.findOne({ guide: guideId })
+      .populate({
+        path: "students",
+        model: Student,
+        select: "_id name email enrollmentNumber phone",
+      })
+      .lean();
+
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: "No group found for this guide.",
+      });
+    }
+
+    // ✅ For frontend consistency
+    group.members = group.students?.map((student) => ({
+      _id: student._id,
+      name: student.name,
+      email: student.email,
+      enrollmentNumber: student.enrollmentNumber,
+      phone: student.phone,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: group,
+    });
   } catch (error) {
-    console.error("Error getting guide-panel group:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Error getting guide-panel group details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching group details.",
+    });
   }
 };
 

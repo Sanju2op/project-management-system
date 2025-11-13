@@ -12,12 +12,10 @@ const groupSchema = new mongoose.Schema(
     guide: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Guide",
-      required: true,
     },
     division: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Division",
-      // required: true,
     },
     projectTitle: {
       type: String,

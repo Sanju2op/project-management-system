@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Plus, Check, X } from "lucide-react";
-import { studentProtectedAPI } from "../services/api";
+import { studentProtectedAPI, notificationAPI } from "../services/api";
 
 function CreateGroup() {
   const navigate = useNavigate();

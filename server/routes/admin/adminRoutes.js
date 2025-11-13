@@ -13,6 +13,8 @@ import {
   updateGuide,
   updateGuideStatus,
   getActiveGuides,
+  deleteGuide,
+  getGroupsByGuide,
   getGroupsByYearOrCourse,
   getDivisions,
   getGroupById,
@@ -49,8 +51,6 @@ import {
   addGuideAnnouncement,
   updateGuideAnnouncement,
   deleteGuideAnnouncement,
-  getProjectEvaluations,
-  getProjectEvaluationById,
   updateProjectEvaluation,
   getAllStudents,
   getStudentById,
@@ -60,8 +60,21 @@ import {
   createNotification,
   markNotificationAsRead,
   markAllNotificationsRead,
+  getGroupProjectEvaluations,
   // updateGroupDetails,
 } from "../../controllers/admin/adminController.js";
+
+import {
+  getProjectEvaluationById,
+  saveAllProjectEvaluations,
+} from "../../controllers/evaluationController.js";
+
+import {
+  getAllExpertise,
+  addExpertise,
+  updateExpertise,
+  deleteExpertise,
+} from "../../controllers/expertiseController.js";
 
 import { protectAdmin } from "../../middlewares/authMiddleware.js";
 
@@ -106,6 +119,12 @@ router.patch("/new-guide-status/:id", updateGuideStatus);
 
 // GET /api/admin/active-guides
 router.get("/active-guides", getActiveGuides);
+
+// DELETE /api/admin/guides/:id
+router.delete("/guides/:id", deleteGuide);
+
+// get groups for the guides
+router.get("/admin/get-groups-by-guide/:guideId", getGroupsByGuide);
 
 // GET /api/admin/get-groups?year=2025
 router.get("/get-groups", getGroupsByYearOrCourse);
@@ -226,13 +245,15 @@ router.put("/guide-announcements/:id", updateGuideAnnouncement);
 // DELETE a guide announcement by ID
 router.delete("/guide-announcements/:id", deleteGuideAnnouncement);
 
-router.get("/get-project-evaluations", getProjectEvaluations);
-
-// GET evaluations for a specific project
-router.get("/get-project-evaluation/:projectId", getProjectEvaluationById);
-
+// GET evaluation data
+router.get(
+  "/get-group-evaluation/:groupId",
+  protectAdmin,
+  getProjectEvaluationById
+);
+// Correct order: groupId → parameterId → studentId
 router.put(
-  "/project-evaluations/:projectId/:parameterId",
+  "/project-evaluations/:groupId/:parameterId/:studentId",
   updateProjectEvaluation
 );
 
@@ -263,5 +284,23 @@ router.get("/notifications", getAllNotifications);
 router.post("/notifications", createNotification);
 router.patch("/notifications/:id/read", markNotificationAsRead);
 router.patch("/notifications/mark-all-read", markAllNotificationsRead);
+
+// GET all parameters
+// // Parameters
+// router.get("/get-evaluation-params", protectAdmin, getEvaluationParameters);
+router.post(
+  "/save-all-project-evaluations/:groupId",
+  protectAdmin,
+  saveAllProjectEvaluations
+);
+
+// GET /api/admin/groups/:groupId/project-evaluations
+router.get("/groups/:groupId/project-evaluations", getGroupProjectEvaluations);
+
+// 🧠 Expertise Management Routes
+router.get("/expertise", protectAdmin, getAllExpertise);
+router.post("/expertise", protectAdmin, addExpertise);
+router.put("/expertise/:id", protectAdmin, updateExpertise);
+router.delete("/expertise/:id", protectAdmin, deleteExpertise);
 
 export default router;

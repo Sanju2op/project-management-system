@@ -1,5 +1,5 @@
+// models/ProjectEvaluation.js
 import mongoose from "mongoose";
-
 const projectEvaluationSchema = new mongoose.Schema(
   {
     projectId: {
@@ -7,27 +7,33 @@ const projectEvaluationSchema = new mongoose.Schema(
       ref: "Group",
       required: true,
     },
-    parameterId: {
+    studentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "EvaluationParameter",
+      ref: "Student",
       required: true,
     },
-    givenMarks: {
-      type: Number,
-      min: 0,
-      default: null, // null means not evaluated yet
-    },
+    evaluations: [
+      {
+        parameterId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "EvaluationParameter",
+          required: true,
+        },
+        marks: {
+          type: Number,
+          min: 0,
+          required: true,
+        },
+      },
+    ],
     evaluatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",
-      required: true,
     },
   },
   { timestamps: true }
 );
 
-const ProjectEvaluation = mongoose.model(
-  "ProjectEvaluation",
-  projectEvaluationSchema
-);
-export default ProjectEvaluation;
+projectEvaluationSchema.index({ projectId: 1, studentId: 1 }, { unique: true });
+
+export default mongoose.model("ProjectEvaluation", projectEvaluationSchema);

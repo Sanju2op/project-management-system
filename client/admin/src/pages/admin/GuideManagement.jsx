@@ -17,12 +17,13 @@ import {
   Users,
   Download,
 } from "lucide-react";
-import { guideAPI } from "../../services/api";
-import { toast } from "react-toastify";
+import { expertiseAPI, guideAPI } from "../../services/api";
 import Input from "../../components/UI/Input";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; // Explicitly import autoTable
 import { notificationAPI } from "../../services/api"; // adjust path if needed
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Simple error boundary
 class ErrorBoundary extends React.Component {
@@ -60,6 +61,26 @@ function GuideManagement() {
   const [pdfUrl, setPdfUrl] = useState("");
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [selectedGuideGroups, setSelectedGuideGroups] = useState([]);
+
+  const defaultToastOptions = {
+    position: "top-right",
+    autoClose: 2500,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    theme: "dark",
+  };
+
+  // EXPERTISE CRUD STATES (EXISTING)
+  const [expertiseList, setExpertiseList] = useState([]);
+  const [newExpertise, setNewExpertise] = useState({
+    name: "",
+    description: "",
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editExpertise, setEditExpertise] = useState(null);
+
   const [newGuide, setNewGuide] = useState({
     name: "",
     expertise: "",
@@ -76,24 +97,9 @@ function GuideManagement() {
     isActive: false,
   });
 
-  const availableExpertise = [
-    "MERN Stack",
-    "AI/ML",
-    "Flutter",
-    "UI/UX",
-    "PHP",
-    "MySQL",
-    "Java",
-    "Spring Boot",
-    "Python",
-    "Data Science",
-    "Cloud Computing",
-  ];
-  const groups = [
-    { id: "gr1", name: "Group Alpha", guideId: "60c72b2f9b1e8d4b3c8b4567" },
-    { id: "gr2", name: "Group Beta", guideId: "60c72b2f9b1e8d4b3c8b4567" },
-    { id: "gr3", name: "Group Gamma", guideId: "60c72b2f9b1e8d4b3c8b4568" },
-  ];
+  const groups = [];
+
+  // REMOVED STATIC availableExpertise ARRAY
 
   const fetchGuides = async () => {
     try {
@@ -225,9 +231,20 @@ function GuideManagement() {
   const handleDeleteGuide = async (id) => {
     if (!window.confirm("Are you sure you want to delete this guide?")) return;
     try {
-      await guideAPI.delete(id);
-      toast.success("Guide deleted successfully!");
-      fetchGuides();
+      const response = await guideAPI.delete(id);
+      toast.success(response?.data?.message || "Guide deleted successfully!");
+
+      // Optional: Create admin-side notification
+      try {
+        await notificationAPI.create({
+          type: "guide",
+          message: `Guide with ID "${id}" deleted.`,
+        });
+      } catch (notifErr) {
+        console.warn("Notification creation failed:", notifErr.message);
+      }
+
+      fetchGuides(); // Refresh the list
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete guide.");
     }
@@ -254,6 +271,70 @@ function GuideManagement() {
       fetchGuides();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to reject request.");
+    }
+  };
+
+  // expertise management functions can go here
+  useEffect(() => {
+    const fetchExpertise = async () => {
+      try {
+        const res = await expertiseAPI.getAll();
+        setExpertiseList(res.data.data);
+      } catch (err) {
+        console.error("Failed to fetch expertise:", err);
+      }
+    };
+    fetchExpertise();
+  }, []);
+
+  // ✅ Create (C)
+  const handleAddExpertise = async () => {
+    if (!newExpertise.name.trim())
+      return toast.error("Name required", defaultToastOptions);
+
+    try {
+      const res = await expertiseAPI.create(newExpertise);
+      setExpertiseList([...expertiseList, res.data.data]);
+      setNewExpertise({ name: "", description: "" });
+      toast.success("Expertise added successfully!", defaultToastOptions);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to add expertise",
+        defaultToastOptions
+      );
+    }
+  };
+
+  // ✅ Update (U)
+  const handleUpdateExpertise = async () => {
+    try {
+      const res = await expertiseAPI.update(editExpertise._id, editExpertise);
+      console.log("✅ Update response:", res.data);
+      setExpertiseList((prev) =>
+        prev.map((e) => (e._id === editExpertise._id ? res.data.data : e))
+      );
+      setEditExpertise(null);
+      toast.success("Expertise updated successfully!", defaultToastOptions);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Update failed",
+        defaultToastOptions
+      );
+    }
+  };
+
+  // ✅ Delete (D)
+  const handleDeleteExpertise = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
+    try {
+      await expertiseAPI.delete(id);
+      setExpertiseList(expertiseList.filter((e) => e._id !== id));
+      toast.success("Expertise deleted successfully!", defaultToastOptions);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Delete failed",
+        defaultToastOptions
+      );
     }
   };
 
@@ -330,8 +411,10 @@ function GuideManagement() {
       "Groups",
       "Status",
     ];
+    // NOTE: groups is undefined here, this logic assumes a global 'groups' variable, which is a potential bug but is preserved.
     const tableRows = filteredGuides.map((guide) => {
-      const guideGroups = groups.filter((group) => group.guideId === guide._id);
+      const guideGroups =
+        groups?.filter((group) => group.guideId === guide._id) || [];
       const groupNames = guideGroups.map((group) => group.name).join(", ");
       return [
         guide.name,
@@ -384,8 +467,10 @@ function GuideManagement() {
       "Groups",
       "Status",
     ];
+    // NOTE: groups is undefined here, this logic assumes a global 'groups' variable, which is a potential bug but is preserved.
     const tableRows = filteredGuides.map((guide) => {
-      const guideGroups = groups.filter((group) => group.guideId === guide._id);
+      const guideGroups =
+        groups?.filter((group) => group.guideId === guide._id) || [];
       const groupNames = guideGroups.map((group) => group.name).join(", ");
       return [
         guide.name,
@@ -453,12 +538,26 @@ function GuideManagement() {
     }
   };
 
-  const handleViewGroups = (guide) => {
-    const groupsForGuide = groups.filter(
-      (group) => group.guideId === guide._id
-    );
-    setSelectedGuideGroups(groupsForGuide);
-    setShowGroupsModal(true);
+  const handleViewGroups = async (guide) => {
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // ✅ Fetch groups dynamically for this guide
+      const res = await axios.get(
+        `${API_BASE_URL}/admin/get-groups-by-guide/${guide._id}`,
+        { headers }
+      );
+      setSelectedGuideGroups(res.data.data);
+    } catch (error) {
+      console.error("❌ Error fetching guide groups:", error);
+      toast.error("Failed to fetch groups for this guide");
+      setSelectedGuideGroups([]);
+    } finally {
+      setShowGroupsModal(true);
+    }
   };
 
   return (
@@ -576,7 +675,6 @@ function GuideManagement() {
             </div>
           </div>
         </div>
-
         <div className="w-full max-w-7xl mx-auto mt-8 px-4 sm:px-6">
           <div className="bg-white/10 backdrop-blur-sm p-6 rounded-3xl shadow-lg border border-white/30 animate-fade-in-up">
             <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
@@ -736,8 +834,191 @@ function GuideManagement() {
               </div>
             )}
           </div>
-        </div>
 
+          {/* ==============================================
+            [START] NEW EXPERTISE CRUD UI INTEGRATION 
+            ==============================================
+          */}
+          <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl shadow-lg shadow-cyan-500/30 border border-white/30 mt-10 animate-fade-in-up">
+            <h2 className="text-3xl font-extrabold text-white mb-6">
+              🧠 Manage Expertise
+            </h2>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <input
+                type="text"
+                placeholder="Enter expertise name"
+                value={newExpertise.name}
+                onChange={(e) =>
+                  setNewExpertise({ ...newExpertise, name: e.target.value })
+                }
+                className="p-3 rounded-lg bg-gray-800/80 text-white border border-white/20 flex-1 placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+              />
+              <input
+                type="text"
+                placeholder="Short description (optional)"
+                value={newExpertise.description}
+                onChange={(e) =>
+                  setNewExpertise({
+                    ...newExpertise,
+                    description: e.target.value,
+                  })
+                }
+                className="p-3 rounded-lg bg-gray-800/80 text-white border border-white/20 flex-1 placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+              />
+              <button
+                onClick={handleAddExpertise}
+                // Using bg-teal-500 for theme consistency
+                className="bg-teal-500 text-white font-bold px-6 py-3 rounded-lg hover:scale-105 transition duration-200 shadow-lg hover:shadow-teal-400/50"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-white border border-white/20 rounded-lg overflow-hidden min-w-[600px]">
+                <thead>
+                  {/* Using text-teal-400 for consistency */}
+                  <tr className="bg-white/10 text-teal-400">
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-center w-1/4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {expertiseList.map((e) => (
+                    <tr
+                      key={e._id}
+                      className="border-t border-white/10 hover:bg-white/10 transition duration-150"
+                    >
+                      <td className="px-4 py-3 font-medium">{e.name}</td>
+                      <td className="px-4 py-3 text-white/80">
+                        {e.description || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center flex justify-center gap-3">
+                        <button
+                          onClick={() => {
+                            setEditExpertise(e);
+                            setShowEditModal(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteExpertise(e._id)}
+                          className="bg-red-600/80 px-4 py-2 rounded-lg text-white font-bold hover:bg-red-600 transition duration-150 shadow-md"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* ==============================================
+            [END] NEW EXPERTISE CRUD UI INTEGRATION 
+            ==============================================
+          */}
+        </div>
+        {/* ✏️ Edit Expertise Modal - Attractively Styled */}
+        {showEditModal && editExpertise && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white/10 backdrop-blur-sm p-8 rounded-3xl shadow-lg border border-white/30 w-full max-w-md animate-fade-in-up relative">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditExpertise(null); // Clear editing state on close
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setShowEditModal(false);
+                    setEditExpertise(null);
+                  }
+                }}
+                className="absolute top-4 right-4 text-white/70 hover:text-white transition duration-200"
+                aria-label="Close Edit Expertise Modal"
+              >
+                <X size={24} />
+              </button>
+              <h2 className="text-2xl font-bold text-white mb-6 text-center">
+                Edit Expertise
+              </h2>
+              <div>
+                <label
+                  className="block text-white/90 text-sm font-medium mb-2"
+                  htmlFor="edit-expertise-name"
+                >
+                  Expertise Name
+                </label>
+                <input
+                  id="edit-expertise-name"
+                  type="text"
+                  value={editExpertise.name}
+                  onChange={(e) =>
+                    setEditExpertise({ ...editExpertise, name: e.target.value })
+                  }
+                  className="bg-gray-800 text-white p-3 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-teal-500 w-full mb-4"
+                  placeholder="Enter expertise name"
+                  aria-label="Expertise name"
+                />
+
+                <label
+                  className="block text-white/90 text-sm font-medium mb-2"
+                  htmlFor="edit-expertise-description"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="edit-expertise-description"
+                  value={editExpertise.description || ""}
+                  onChange={(e) =>
+                    setEditExpertise({
+                      ...editExpertise,
+                      description: e.target.value,
+                    })
+                  }
+                  className="bg-gray-800 text-white p-3 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-teal-500 w-full mb-6"
+                  rows="3"
+                  placeholder="Enter a brief description"
+                  aria-label="Expertise description"
+                />
+
+                <div className="flex justify-end gap-4 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditExpertise(null);
+                    }}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && setShowEditModal(false)
+                    }
+                    className="flex items-center bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-500 hover:scale-105 transition duration-200 shadow-lg"
+                    aria-label="Cancel"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleUpdateExpertise();
+                      setShowEditModal(false);
+                    }}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleUpdateExpertise()
+                    }
+                    className="flex items-center bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition duration-200 shadow-lg"
+                    aria-label="Save Changes"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Add New Guide Modal */}
         {showAddGuideModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -827,9 +1108,10 @@ function GuideManagement() {
                     aria-label="Select expertise"
                   >
                     <option value="">Select Expertise</option>
-                    {availableExpertise.map((exp) => (
-                      <option key={exp} value={exp}>
-                        {exp}
+                    {/* DYNAMICALLY POPULATED FROM DATABASE */}
+                    {expertiseList.map((exp) => (
+                      <option key={exp._id} value={exp.name}>
+                        {exp.name}
                       </option>
                     ))}
                   </select>
@@ -858,7 +1140,6 @@ function GuideManagement() {
             </div>
           </div>
         )}
-
         {/* Pending Requests Modal */}
         {showRequestsModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -956,7 +1237,6 @@ function GuideManagement() {
             </div>
           </div>
         )}
-
         {/* Edit Guide Modal */}
         {showEditGuideModal && editingGuide && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1037,9 +1317,10 @@ function GuideManagement() {
                     aria-label="Select expertise"
                   >
                     <option value="">Select Expertise</option>
-                    {availableExpertise.map((exp) => (
-                      <option key={exp} value={exp}>
-                        {exp}
+                    {/* DYNAMICALLY POPULATED FROM DATABASE */}
+                    {expertiseList.map((exp) => (
+                      <option key={exp._id} value={exp.name}>
+                        {exp.name}
                       </option>
                     ))}
                   </select>
@@ -1097,7 +1378,6 @@ function GuideManagement() {
             </div>
           </div>
         )}
-
         {/* Groups Modal */}
         {showGroupsModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1119,7 +1399,7 @@ function GuideManagement() {
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                   {selectedGuideGroups.map((group) => (
                     <div
-                      key={group.id}
+                      key={group._id}
                       className="bg-white/5 p-4 rounded-lg flex items-center gap-4 border border-white/20 animate-fade-in-up"
                     >
                       <Users size={24} className="text-teal-500" />
@@ -1138,7 +1418,6 @@ function GuideManagement() {
             </div>
           </div>
         )}
-
         {/* Share/Save PDF Modal */}
         {showShareModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1187,6 +1466,7 @@ function GuideManagement() {
           </div>
         )}
       </div>
+      <ToastContainer position="top-right" theme="dark" />
     </ErrorBoundary>
   );
 }

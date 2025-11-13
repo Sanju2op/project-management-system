@@ -262,7 +262,7 @@ export const guidePanelAPI = {
     }
   },
 
-  // Group Management - Using actual backend endpoints
+  // Group Management
   getGroups: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     const response = await apiRequest(`/guide-panel/groups?${queryString}`, {
@@ -271,10 +271,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} groupId - The ID of the group
-   * @returns {Promise<object>} Group details
-   */
   getGroupDetails: async (groupId) => {
     const response = await apiRequest(`/guide-panel/groups/${groupId}`, {
       method: "GET",
@@ -282,11 +278,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} groupId - The ID of the group
-   * @param {object} groupData - The group data to update
-   * @returns {Promise<object>} Updated group
-   */
   updateGroup: async (groupId, groupData) => {
     const response = await apiRequest(`/guide-panel/groups/${groupId}`, {
       method: "PUT",
@@ -295,11 +286,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} groupId - The ID of the group
-   * @param {object} groupData - The group details to update
-   * @returns {Promise<object>} Updated group details
-   */
   updateGroupDetails: async (groupId, groupData) => {
     const response = await apiRequest(
       `/guide-panel/groups/${groupId}/details`,
@@ -311,9 +297,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} groupId
-   */
   getAvailableStudentsForGroup: async (groupId) => {
     const response = await apiRequest(
       `/guide-panel/groups/${groupId}/available-students`,
@@ -333,10 +316,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} enrollment - Enrollment number to search
-   * @returns {Promise<object[]>} Search results
-   */
   searchStudents: async (enrollment) => {
     const response = await apiRequest(
       `/guide-panel/students/search?enrollment=${encodeURIComponent(
@@ -349,10 +328,6 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  /**
-   * @param {string} studentId - The ID of the student
-   * @returns {Promise<object>} Student details
-   */
   getStudentDetails: async (studentId) => {
     const response = await apiRequest(`/guide-panel/students/${studentId}`, {
       method: "GET",
@@ -360,23 +335,54 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  // Profile Management - Using authAPI endpoints
+  // Profile Management
   getProfile: async () => {
     return await authAPI.getGuideProfile();
   },
 
-  /**
-   * @param {object} profileData - Profile data to update
-   * @returns {Promise<object>} Updated profile
-   */
   updateProfile: async (profileData) => {
     return await authAPI.updateGuideProfile(profileData);
   },
 
-  // Note: The following endpoints are not yet implemented in the backend
-  // They are kept for future implementation
+  // ------------------------------
+  // 🔹 EVALUATION SYSTEM (NEW)
+  // ------------------------------
 
-  // Project Management (Not implemented in backend yet)
+  /**
+   * Get all dynamic evaluation parameters from backend
+   * @returns {Promise<object[]>}
+   */
+  getEvaluationParameters: async () => {
+    const response = await apiRequest(`/guide-panel/evaluation-parameters`, {
+      method: "GET",
+    });
+    return response.data;
+  },
+
+  getEvaluationByGroup: async (groupId) => {
+    const response = await apiRequest(
+      `/guide-panel/projects/${groupId}/evaluation`,
+      {
+        method: "GET",
+      }
+    );
+    return response.data;
+  },
+
+  saveEvaluation: async (groupId, evaluations) => {
+    const response = await apiRequest(
+      `/guide-panel/projects/${groupId}/evaluate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ evaluations }),
+      }
+    );
+    return response.data;
+  },
+
+  // ------------------------------
+
+  // Project Management
   getProjects: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     const response = await apiRequest(`/guide-panel/projects?${queryString}`, {
@@ -403,7 +409,7 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  // Project Approval (Not implemented in backend yet)
+  // Project Approval
   getProjectApprovals: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     const response = await apiRequest(
@@ -436,7 +442,7 @@ export const guidePanelAPI = {
     return response.data;
   },
 
-  // Feedback System (Not implemented in backend yet)
+  // Feedback System
   getFeedback: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
     const response = await apiRequest(`/guide-panel/feedback?${queryString}`, {
@@ -476,34 +482,6 @@ export const guidePanelAPI = {
       }
     );
     return response.data;
-  },
-
-  // Seminar Schedule (Not implemented in backend yet)
-  getSeminarSchedule: async (params = {}) => {
-    console.warn("getSeminarSchedule endpoint not implemented in backend yet");
-    return [];
-  },
-
-  scheduleSeminar: async (seminarData) => {
-    console.warn("scheduleSeminar endpoint not implemented in backend yet");
-    return null;
-  },
-
-  // Communication (Not implemented in backend yet)
-  getCommunication: async (params = {}) => {
-    // console.warn('getCommunication endpoint not implemented in backend yet');
-    return [];
-  },
-
-  sendMessage: async (messageData) => {
-    console.warn("sendMessage endpoint not implemented in backend yet");
-    return null;
-  },
-
-  // Reports & Analytics (Not implemented in backend yet)
-  getReports: async (type, params = {}) => {
-    console.warn("getReports endpoint not implemented in backend yet");
-    return null;
   },
 };
 

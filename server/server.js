@@ -31,6 +31,7 @@ app.use("/api", guideRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/guide-panel", guidePanelRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/guideroutes", guideRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

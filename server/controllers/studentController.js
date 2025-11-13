@@ -2,6 +2,7 @@ import Student from "../models/student.js";
 import Division from "../models/division.js";
 import Group from "../models/group.js";
 import jwt from "jsonwebtoken";
+import { notificationAPI } from "../../client/student/src/services/api.js";
 
 // GET /api/student/divisions - list active divisions
 export const getActiveDivisions = async (req, res) => {
@@ -246,7 +247,7 @@ export const createGroup = async (req, res) => {
 
     await group.save();
     try {
-      await Notification.create({
+      await notificationAPI.create({
         type: "group",
         message: `New group "${group.name}" created.`,
         isRead: false,

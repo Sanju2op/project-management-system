@@ -88,61 +88,6 @@ router.get("/projects", async (req, res) => {
   }
 });
 
-// POST /api/guide-panel/projects/:groupId/evaluate - create or update evaluation for a group
-router.post("/projects/:groupId/evaluate", async (req, res) => {
-  try {
-    const guideId = req.guide._id.toString();
-    const { groupId } = req.params;
-    const {
-      technicalScore = 0,
-      presentationScore = 0,
-      documentationScore = 0,
-      innovationScore = 0,
-      overallScore = 0,
-      status = "Completed",
-    } = req.body || {};
-
-    const group = await Group.findOne({ _id: groupId, guide: guideId });
-    if (!group) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Group not found" });
-    }
-
-    const updated = await GuideProjectEvaluation.findOneAndUpdate(
-      { group: groupId, guide: guideId },
-      {
-        $set: {
-          technicalScore,
-          presentationScore,
-          documentationScore,
-          innovationScore,
-          overallScore,
-          status,
-          lastEvaluatedAt: new Date(),
-        },
-      },
-      { new: true, upsert: true }
-    );
-
-    return res.status(200).json({
-      data: {
-        id: updated._id,
-        groupId: group._id,
-        status: updated.status,
-        technicalScore: updated.technicalScore,
-        presentationScore: updated.presentationScore,
-        documentationScore: updated.documentationScore,
-        innovationScore: updated.innovationScore,
-        overallScore: updated.overallScore,
-        lastEvaluatedAt: updated.lastEvaluatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Error saving evaluation:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
 // PUT /api/guide-panel/groups/:groupId/details - update project details and members
 router.put("/groups/:groupId/details", async (req, res) => {
   try {
@@ -374,12 +319,10 @@ router.post("/feedback", async (req, res) => {
     }
 
     if (!resolvedGroupId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "groupId or valid groupName is required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "groupId or valid groupName is required",
+      });
     }
 
     // Ensure ownership
@@ -518,13 +461,11 @@ router.post("/feedback/:id/remind", async (req, res) => {
 
     if (recipients.length === 0) {
       // Gracefully respond success even if no emails to avoid UI errors
-      return res
-        .status(200)
-        .json({
-          data: {
-            message: "No recipient emails available; reminder acknowledged.",
-          },
-        });
+      return res.status(200).json({
+        data: {
+          message: "No recipient emails available; reminder acknowledged.",
+        },
+      });
     }
 
     // Attempt sending emails; swallow individual failures to be graceful
