@@ -19,6 +19,13 @@ import "react-toastify/dist/ReactToastify.css";
 
 const defaultToastOptions = { position: "top-right", theme: "dark" };
 
+// --- NEW HELPER FUNCTIONS FOR CONSISTENT ID HANDLING ---
+const getStudentId = (member) => member?._id || member?.id;
+const getCriteriaId = (criteria) => criteria?._id || criteria?.id;
+const createEvaluationKey = (student, criteria) =>
+  `${getStudentId(student)}_${getCriteriaId(criteria)}`;
+// --------------------------------------------------------
+
 export default function ProjectEvaluation() {
   const navigate = useNavigate();
   const [selectedProject, setSelectedProject] = useState(null);
@@ -26,6 +33,7 @@ export default function ProjectEvaluation() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [evaluationForm, setEvaluationForm] = useState({});
+  const [evaluationCriteria, setEvaluationCriteria] = useState([]);
 
   // Load projects on component mount
   useEffect(() => {
@@ -47,8 +55,7 @@ export default function ProjectEvaluation() {
     loadProjects();
   }, []);
 
-  const [evaluationCriteria, setEvaluationCriteria] = useState([]);
-
+  // Load evaluation criteria on component mount
   useEffect(() => {
     const loadEvaluationCriteria = async () => {
       try {
@@ -75,13 +82,16 @@ export default function ProjectEvaluation() {
 
     const evaluations = [];
 
+    // UPDATED: Use helper functions for consistent IDs
     selectedProject.members.forEach((member) => {
-      const studentId = member?._id;
+      const studentId = getStudentId(member);
       if (!studentId) return;
 
       evaluationCriteria.forEach((param) => {
-        const paramId = param?._id;
-        const key = `${studentId}_${paramId}`;
+        const paramId = getCriteriaId(param);
+        if (!paramId) return;
+
+        const key = createEvaluationKey(member, param); // Consistent Key
         const marks = Number(evaluationForm[key] || 0);
         evaluations.push({ student: studentId, parameter: paramId, marks });
       });
@@ -117,16 +127,6 @@ export default function ProjectEvaluation() {
     }
   };
 
-  const getGrade = (score) => {
-    if (score >= 90) return { grade: "A+", color: "text-green-400" };
-    if (score >= 80) return { grade: "A", color: "text-green-400" };
-    if (score >= 70) return { grade: "B+", color: "text-blue-400" };
-    if (score >= 60) return { grade: "B", color: "text-blue-400" };
-    if (score >= 50) return { grade: "C+", color: "text-yellow-400" };
-    if (score >= 40) return { grade: "C", color: "text-yellow-400" };
-    return { grade: "F", color: "text-red-400" };
-  };
-
   return (
     <div className="min-h-screen bg-gray-900 font-sans">
       <ToastContainer {...defaultToastOptions} />
@@ -159,6 +159,7 @@ export default function ProjectEvaluation() {
 
               <div className="space-y-3">
                 {projects.map((project) => (
+                  // ... (inside the project list map)
                   <div
                     key={project._id || project.id}
                     onClick={async () => {
@@ -200,23 +201,52 @@ export default function ProjectEvaluation() {
                           return;
                         }
 
-                        // 🧠 Map API response into your formState
+                        // 🧠 CRITICAL FIX: Map API response into your formState
                         const formState = {};
-                        evaluationsData.forEach((studentEval) => {
+
+                        // Loop over the top-level array (which contains one object per student)
+                        evaluationsData.forEach((studentEvaluation) => {
+                          // 1. Get the ID for the student
+                          // The studentId field is likely a populated object, so we check studentId._id first.
+                          // If the field is just the string ID, we use it directly.
                           const studentId =
-                            studentEval.studentId?._id ||
-                            studentEval.studentId ||
-                            null;
-                          if (!studentId) return;
+                            studentEvaluation.studentId?._id ||
+                            studentEvaluation.studentId;
 
-                          studentEval.evaluations.forEach((ev) => {
-                            const paramId =
-                              ev.parameterId?._id || ev.parameterId || null;
-                            if (!paramId) return;
+                          if (!studentId) {
+                            console.warn(
+                              "Skipping evaluation due to missing Student ID",
+                              studentEvaluation
+                            );
+                            return;
+                          }
 
-                            const key = `${studentId}_${paramId}`;
-                            formState[key] = ev.marks ?? "";
-                          });
+                          // 2. Loop over the nested evaluations array
+                          const evaluationItems =
+                            studentEvaluation.evaluations || [];
+                          if (Array.isArray(evaluationItems)) {
+                            evaluationItems.forEach((evaluationItem) => {
+                              // 3. Get the ID for the parameter (criteria)
+                              // The parameterId field is likely a populated object.
+                              const paramId =
+                                evaluationItem.parameterId?._id ||
+                                evaluationItem.parameterId;
+
+                              if (!paramId) {
+                                console.warn(
+                                  "Skipping evaluation item due to missing Parameter ID",
+                                  evaluationItem
+                                );
+                                return;
+                              }
+
+                              // 4. Construct the consistent key (e.g., "stdID_paramID")
+                              const key = `${studentId}_${paramId}`;
+
+                              // 5. Store the marks, ensuring an empty string if marks is null/undefined
+                              formState[key] = evaluationItem.marks ?? "";
+                            });
+                          }
                         });
 
                         console.log("✅ Final formState:", formState);
@@ -359,9 +389,7 @@ export default function ProjectEvaluation() {
 
                         {selectedProject.members.map((member) => (
                           <div
-                            key={`${member._id || member}-${
-                              criteria._id || criteria.id
-                            }`}
+                            key={createEvaluationKey(member, criteria)}
                             className="flex justify-between items-center mb-2"
                           >
                             <span className="text-white/80">
@@ -371,19 +399,18 @@ export default function ProjectEvaluation() {
                               type="number"
                               min="0"
                               max={criteria.marks}
+                              // UPDATED: Use helper function for value lookup
                               value={
                                 evaluationForm[
-                                  `${member._id || member.id}_${
-                                    criteria._id || criteria.id
-                                  }`
-                                ] || ""
+                                  createEvaluationKey(member, criteria)
+                                ] ?? ""
                               }
+                              // UPDATED: Use helper function for onChange key setting
                               onChange={(e) =>
                                 setEvaluationForm((prev) => ({
                                   ...prev,
-                                  [`${member._id || member.id}_${
-                                    criteria._id || criteria.id
-                                  }`]: e.target.value,
+                                  [createEvaluationKey(member, criteria)]:
+                                    e.target.value,
                                 }))
                               }
                               className="w-20 text-center rounded-md bg-white/20 text-white border border-white/30"
