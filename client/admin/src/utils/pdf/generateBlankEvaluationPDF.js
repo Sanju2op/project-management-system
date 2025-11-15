@@ -1,15 +1,12 @@
+// utils/pdf/generateBlankEvaluationPDF.js
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export const generateGroupEvaluationsPDF = ({
-  groups,
-  parameters,
-  evaluationsMap,
-}) => {
+export const generateBlankEvaluationPDF = ({ groups, parameters }) => {
   const doc = new jsPDF("landscape", "pt", "a4");
 
   doc.setFontSize(20);
-  doc.text("PROJECT EVALUATION REPORT", 420, 40, { align: "center" });
+  doc.text("BLANK EVALUATION SHEET", 420, 40, { align: "center" });
   doc.setFontSize(11);
   doc.text(`Generated On: ${new Date().toLocaleDateString("en-IN")}`, 700, 40);
 
@@ -17,12 +14,7 @@ export const generateGroupEvaluationsPDF = ({
   const INFO_LINE_HEIGHT = 18;
 
   groups.forEach((group, gIdx) => {
-    let startY = 0;
-    if (gIdx === 0) {
-      startY = 70;
-    } else {
-      startY = doc.lastAutoTable.finalY + VERTICAL_SPACING;
-    }
+    let startY = gIdx === 0 ? 70 : doc.lastAutoTable.finalY + VERTICAL_SPACING;
 
     if (startY + INFO_LINE_HEIGHT * 4 + 100 > doc.internal.pageSize.height) {
       doc.addPage();
@@ -37,7 +29,6 @@ export const generateGroupEvaluationsPDF = ({
     const semester = group.division?.semester || "N/A";
 
     let currentY = startY + INFO_LINE_HEIGHT;
-
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
 
@@ -51,29 +42,19 @@ export const generateGroupEvaluationsPDF = ({
 
     const tableStartY = currentY + VERTICAL_SPACING;
 
-    const head = [
-      ["Sr", "Student", "Enroll", ...parameters.map((p) => p.name), "Total"],
-    ];
+    // Table header
+    const head = [["Sr", "Student", "Enroll", ...parameters, "Total"]];
 
+    // Table body: Student names & enrollment shown, marks blank
     const members = group.members || [];
-
     const body = members.map((member, idx) => {
-      const enrollment = member.enrollment;
-      const name = member.name || "Unknown";
-
-      const marksObj =
-        evaluationsMap.byEnrollment?.[group._id]?.[enrollment] || {};
-
-      let total = 0;
-      const row = [idx + 1, name, enrollment];
-
-      parameters.forEach((param) => {
-        const m = marksObj[param._id] ?? "-";
-        row.push(m);
-        if (typeof m === "number") total += m;
-      });
-
-      row.push(total);
+      const row = [
+        idx + 1,
+        member.name || "Unknown",
+        member.enrollment || "N/A",
+      ];
+      parameters.forEach(() => row.push("")); // blank marks
+      row.push(""); // blank total
       return row;
     });
 
@@ -82,19 +63,19 @@ export const generateGroupEvaluationsPDF = ({
       head,
       body,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 5, halign: "center" },
+      styles: { fontSize: 9, cellPadding: 8, halign: "center" },
       headStyles: {
-        fillColor: "#0d9488",
+        fillColor: "#7c3aed",
         textColor: "#fff",
         fontStyle: "bold",
       },
       columnStyles: {
         0: { cellWidth: 30 },
-        1: { cellWidth: 120, halign: "left" },
-        2: { cellWidth: 80 },
-        ...parameters.reduce((acc, _, i) => {
-          acc[3 + i] = { cellWidth: 60 };
-          return acc;
+        1: { cellWidth: 140, halign: "left" },
+        2: { cellWidth: 90 },
+        ...parameters.reduce((a, _, i) => {
+          a[3 + i] = { cellWidth: 70 };
+          return a;
         }, {}),
         [3 + parameters.length]: { cellWidth: 60, fontStyle: "bold" },
       },
@@ -102,5 +83,5 @@ export const generateGroupEvaluationsPDF = ({
     });
   });
 
-  doc.save("Group_Evaluation_Report.pdf");
+  doc.save("Blank_Evaluation_Sheet.pdf");
 };

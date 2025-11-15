@@ -9,6 +9,7 @@ import {
   List,
   Download,
   X,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,6 +19,8 @@ import {
 } from "../../services/api";
 
 import { generateGroupEvaluationsPDF } from "../../utils/pdf/groupEvaluationPdf";
+
+import { generateBlankEvaluationPDF } from "../../utils/pdf/generateBlankEvaluationPDF";
 
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -85,6 +88,10 @@ function ProjectManagement() {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // Add these states at the top (with other useState)
+  const [showBlankPdfModal, setShowBlankPdfModal] = useState(false);
+  const [columnCount, setColumnCount] = useState(4);
+  const [columnNames, setColumnNames] = useState(["", "", "", ""]); // ← NO <string[]>
   // Filters
   const [courseFilter, setCourseFilter] = useState("All");
   const [yearFilter, setYearFilter] = useState("All");
@@ -244,6 +251,18 @@ function ProjectManagement() {
       ...prev,
       [`${studentId}_${paramId}`]: numValue,
     }));
+  };
+
+  // Add this function to handle column name change
+  const handleColumnNameChange = (index, value) => {
+    const newNames = [...columnNames];
+    newNames[index] = value;
+    setColumnNames(newNames);
+  };
+
+  const handleColumnCountChange = (count) => {
+    setColumnCount(count);
+    setColumnNames(Array(count).fill(""));
   };
 
   // --- Save All ---
@@ -635,40 +654,37 @@ function ProjectManagement() {
 
       {showPdfModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div
-            className="
-        bg-gray-800/80 p-6 rounded-xl text-white w-96 
-        shadow-xl border border-teal-500/50 relative
-    "
-          >
-            {/* Close Button (Fixed with X icon) */}
+          <div className="bg-gray-800/80 p-6 rounded-xl text-white w-96 shadow-xl border border-teal-500/50 relative">
             <button
               onClick={() => setShowPdfModal(false)}
               className="absolute top-4 right-4 text-white/70 hover:text-teal-400 transition"
-              aria-label="Close modal"
             >
               <X size={20} />
             </button>
 
             <h2 className="text-xl font-bold mb-4 text-center text-teal-400">
-              Export Options 📄
+              Export Options
             </h2>
 
-            {/* Primary Action Button (Vibrant Gradient) */}
+            {/* Filled PDF */}
             <button
               onClick={handleGenerateGroupPdf}
-              className="
-          w-full flex items-center justify-center gap-2 
-          py-2.5 rounded-lg mb-3 font-semibold 
-          bg-gradient-to-r from-teal-500 to-cyan-500 text-white 
-          hover:opacity-90 transition duration-200 
-          shadow-md shadow-cyan-500/40
-        "
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg mb-3 font-semibold bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90 transition shadow-md shadow-cyan-500/40"
             >
-              <Download size={20} /> Group Evaluations PDF
+              <Download size={20} /> Filled Evaluation PDF
             </button>
 
-            {/* Cancel Button */}
+            {/* Blank PDF */}
+            <button
+              onClick={() => {
+                setShowPdfModal(false);
+                setShowBlankPdfModal(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg mb-3 font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 transition shadow-md shadow-purple-500/40"
+            >
+              <FileText size={20} /> Blank Evaluation Sheet
+            </button>
+
             <button
               onClick={() => setShowPdfModal(false)}
               className="w-full bg-gray-700 text-white py-2.5 rounded-lg font-semibold hover:bg-gray-600 transition"
@@ -679,6 +695,78 @@ function ProjectManagement() {
         </div>
       )}
 
+      {/* Blank Evaluation Sheet Modal */}
+      {showBlankPdfModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-800/90 p-6 rounded-xl text-white w-full max-w-lg shadow-2xl border border-purple-500/50">
+            <button
+              onClick={() => setShowBlankPdfModal(false)}
+              className="absolute top-4 right-4 text-white/70 hover:text-pink-400 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-xl font-bold mb-4 text-center text-purple-400">
+              Blank Evaluation Sheet
+            </h2>
+
+            {/* Dropdown */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Number of Parameters
+              </label>
+              <select
+                value={columnCount}
+                onChange={(e) =>
+                  handleColumnCountChange(Number(e.target.value))
+                }
+                className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-purple-400 outline-none"
+              >
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    {n} Parameters
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Text Fields */}
+            {Array.from({ length: columnCount }, (_, i) => (
+              <input
+                key={i}
+                type="text"
+                placeholder={`Parameter ${i + 1}`}
+                value={columnNames[i]}
+                onChange={(e) => handleColumnNameChange(i, e.target.value)}
+                className="w-full p-2 mb-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-purple-400 outline-none"
+              />
+            ))}
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => {
+                  generateBlankEvaluationPDF({
+                    groups: filteredProjects, // use filteredProjects here
+                    parameters: columnNames.filter((n) => n.trim()),
+                  });
+                  setShowBlankPdfModal(false);
+                }}
+                disabled={columnNames.some((n) => !n.trim())}
+                className="flex-1 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 transition disabled:opacity-50"
+              >
+                Create PDF
+              </button>
+
+              <button
+                onClick={() => setShowBlankPdfModal(false)}
+                className="flex-1 bg-gray-700 text-white py-2.5 rounded-lg font-semibold hover:bg-gray-600 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
