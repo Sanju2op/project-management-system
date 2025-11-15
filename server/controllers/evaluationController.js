@@ -92,3 +92,21 @@ export const saveAllProjectEvaluations = async (req, res) => {
     res.status(500).json({ message: error.message || "Server error" });
   }
 };
+
+// Add this function
+export const getAllProjectEvaluations = async (req, res) => {
+  try {
+    const evaluations = await ProjectEvaluation.find({})
+      .populate("projectId", "name projectTitle projectTechnology")
+      .populate("studentId", "name enrollmentNumber")
+      .populate("evaluations.parameterId", "name marks")
+      .lean();
+
+    res.json({ success: true, data: evaluations });
+  } catch (error) {
+    console.error("getAllProjectEvaluations error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch evaluations" });
+  }
+};

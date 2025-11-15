@@ -1,25 +1,28 @@
-// ProjectManagement.jsx — MAX UI ENHANCEMENT (ORIGINAL DATA LOGIC PRESERVED, HANDLERS CONFIRMED)
-import React, { useState, useEffect, useRef } from "react";
+// ProjectManagement.jsx — FINAL VERSION WITH PDF
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   ChevronLeft,
   Trash2,
   Save,
   CheckCircle,
   ChevronDown,
-  List, // Added List icon for project card
+  List,
+  Download,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  // ORIGINAL API IMPORTS RESTORED
   projectEvaluationAPI,
   evaluationParameterAPI,
   groupAPI,
 } from "../../services/api";
+
+import { generateGroupEvaluationsPDF } from "../../utils/pdf/groupEvaluationPdf";
+
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// --- Utility Component: FilterDropdown (UI Enhanced) ---
-
+// --- FilterDropdown (unchanged) ---
 const FilterDropdown = ({ title, options, selected, onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
@@ -36,7 +39,6 @@ const FilterDropdown = ({ title, options, selected, onSelect }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        // Enhanced button style: Added shadow-xl and hover glow
         className="flex items-center justify-between px-4 py-3 bg-white/10 text-white rounded-xl font-semibold hover:bg-white/20 border border-white/30 backdrop-blur-md w-44 shadow-xl hover:shadow-accent-teal/30 transition duration-300"
       >
         {selected || title}
@@ -70,29 +72,53 @@ const FilterDropdown = ({ title, options, selected, onSelect }) => {
 };
 
 // --- Main Component ---
-
 function ProjectManagement() {
   const navigate = useNavigate();
 
-  // DATA LOGIC PRESERVED: Original state initialization
+  // Core Data
   const [projects, setProjects] = useState([]);
   const [evaluationParameters, setEvaluationParameters] = useState([]);
+  const [allEvaluations, setAllEvaluations] = useState([]); // NEW
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [marksData, setMarksData] = useState({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
-  // Filters (ORIGINAL)
+  // Filters
   const [courseFilter, setCourseFilter] = useState("All");
   const [yearFilter, setYearFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [techFilter, setTechFilter] = useState("All");
 
-  const courseOptions = ["All", "MCA", "BCA", "B.Tech", "M.Tech"];
-  const yearOptions = ["All", "2023", "2024", "2025"];
-  const statusOptions = ["All", "Not Started", "In Progress", "Completed"];
+  const courseOptions = useMemo(() => {
+    const set = new Set(["All"]);
+    projects.forEach((p) => {
+      if (p.division?.course) set.add(p.division.course);
+    });
+    return Array.from(set);
+  }, [projects]);
 
-  // DATA LOGIC PRESERVED: Fetch groups + parameters
+  const yearOptions = useMemo(() => {
+    const years = new Set(["All"]);
+
+    projects.forEach((p) => {
+      if (p.year) years.add(p.year);
+    });
+
+    return Array.from(years);
+  }, [projects]);
+  const statusOptions = useMemo(() => {
+    const statuses = new Set(["All"]);
+
+    projects.forEach((p) => {
+      if (p.status) statuses.add(p.status);
+    });
+
+    return Array.from(statuses);
+  }, [projects]);
+
+  // --- Fetch Groups + Parameters ---
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -118,7 +144,54 @@ function ProjectManagement() {
     fetchData();
   }, [courseFilter, yearFilter]);
 
-  // DATA LOGIC PRESERVED: Fetch group details
+  // --- Fetch ALL Evaluations (for PDF) ---
+  // ---- inside the useEffect that fetches ALL evaluations ----
+  // 1. Add state for allEvaluations (if not already there)
+  // 2. Fetch all evaluations (once)
+  // 1. State
+
+  // 2. Fetch all evaluations (once)
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const { data } = await projectEvaluationAPI.getAllEvaluations();
+        setAllEvaluations(data);
+      } catch (err) {
+        console.error("Failed to load all evaluations", err);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  // 3. Build map: enrollment → marks (fallback to _id)
+  const evaluationsMap = useMemo(() => {
+    const byEnrollment = {};
+    const byId = {};
+
+    allEvaluations.forEach((ev) => {
+      const groupId = ev.projectId._id;
+      const studentId = ev.studentId._id;
+      const enrollment = ev.studentId.enrollmentNumber;
+
+      if (!byId[groupId]) byId[groupId] = {};
+      if (!byEnrollment[groupId]) byEnrollment[groupId] = {};
+
+      const marksObj = {};
+      ev.evaluations.forEach(({ parameterId, marks }) => {
+        marksObj[parameterId._id] = marks;
+      });
+
+      byId[groupId][studentId] = marksObj;
+      byEnrollment[groupId][enrollment] = marksObj;
+    });
+
+    return { byId, byEnrollment };
+  }, [allEvaluations]);
+  // ---- build the map (useMemo) ----
+  // ──────────────────────────────────────────────────────────────
+  //  Replace ONLY this block (around line 140) in ProjectManagement.jsx
+  // ──────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!selectedGroup?._id) return;
 
@@ -138,34 +211,30 @@ function ProjectManagement() {
               })) || [],
         });
 
-        const evaluations = groupData.evaluations || [];
-        const marksData = {};
-
-        evaluations.forEach((evDoc) => {
+        const marks = {};
+        (groupData.evaluations || []).forEach((evDoc) => {
           const studentId =
             typeof evDoc.studentId === "object"
               ? evDoc.studentId._id
               : evDoc.studentId;
 
-          evDoc.evaluations.forEach(({ parameterId, marks }) => {
+          evDoc.evaluations.forEach(({ parameterId, marks: m }) => {
             const paramId =
               typeof parameterId === "object" ? parameterId._id : parameterId;
-
-            marksData[`${studentId}_${paramId}`] = marks;
+            marks[`${studentId}_${paramId}`] = m;
           });
         });
-
-        setMarksData(marksData);
+        setMarksData(marks);
       } catch (err) {
-        console.error("Failed to fetch group details:", err);
         toast.error("Failed to load group details");
+        console.error(err);
       }
     };
 
     fetchGroupDetails();
   }, [selectedGroup?._id]);
 
-  // DATA LOGIC PRESERVED: Handle Mark Change
+  // --- Handle Mark Change ---
   const handleMarkChange = (studentId, paramId, value) => {
     const numValue = value === "" ? "" : Math.max(0, Number(value));
     const param = evaluationParameters.find((p) => p._id === paramId);
@@ -179,7 +248,7 @@ function ProjectManagement() {
     }));
   };
 
-  // DATA LOGIC PRESERVED: Handle Save All Evaluations
+  // --- Save All ---
   const handleSaveAllEvaluations = async () => {
     if (!selectedGroup?._id) return toast.error("No group selected");
 
@@ -197,16 +266,15 @@ function ProjectManagement() {
         .flat();
 
       await projectEvaluationAPI.saveAll(selectedGroup._id, evaluations);
-      toast.success("All marks saved successfully!");
+      toast.success("All marks saved!");
     } catch (err) {
-      console.error("Save error:", err);
-      toast.error(err.response?.data?.message || "Failed to save marks");
+      toast.error(err.response?.data?.message || "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
-  // DATA LOGIC PRESERVED: Grand Total Calculation
+  // --- Grand Total ---
   const grandTotal = {
     given:
       selectedGroup?.students?.reduce((sum, student) => {
@@ -223,7 +291,7 @@ function ProjectManagement() {
       evaluationParameters.reduce((s, p) => s + p.marks, 0),
   };
 
-  // DATA LOGIC PRESERVED: Tech Options and Filtering
+  // --- Tech Filter ---
   const techOptions = [
     "All",
     ...new Set(projects.map((p) => p.projectTechnology).filter(Boolean)),
@@ -236,12 +304,37 @@ function ProjectManagement() {
     );
   });
 
-  // HANDLERS CONFIRMED TO BE CORRECT
-  const handleViewDetails = (group) => {
-    setSelectedGroup(group);
-  };
+  // --- Handlers ---
+  const handleViewDetails = (group) => setSelectedGroup(group);
   const handleBackToList = () => setSelectedGroup(null);
 
+  // --- PDF Generation ---
+  const [showPdfModal, setShowPdfModal] = useState(false);
+
+  const handleGenerateGroupPdf = async () => {
+    if (!projects.length || !evaluationParameters.length) {
+      toast.error("No data to export");
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      generateGroupEvaluationsPDF({
+        groups: projects,
+        parameters: evaluationParameters,
+        evaluationsMap,
+      });
+      toast.success("PDF Generated!");
+    } catch (err) {
+      toast.error("PDF generation failed");
+      console.error(err);
+    } finally {
+      setPdfLoading(false);
+      setShowPdfModal(false);
+    }
+  };
+
+  // --- Loading ---
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 text-3xl text-white animate-pulse">
@@ -250,8 +343,7 @@ function ProjectManagement() {
     );
   }
 
-  // --- Helper Components for Cleanliness ---
-
+  // --- Helper Components ---
   const InfoPill = ({ label, value, highlight }) => (
     <div className="flex flex-col">
       <strong className="text-white/70 text-sm">{label}</strong>
@@ -279,16 +371,12 @@ function ProjectManagement() {
     );
   };
 
-  // --- RENDER DETAILS VIEW (UI Enhanced) ---
-
+  // --- RENDER ---
   const renderDetailsView = () => (
     <div className="w-full max-w-7xl mx-auto py-12">
       <ToastContainer position="top-right" theme="dark" />
-
-      {/* Header and Actions (Stronger Shadows) */}
       <div className="flex justify-between items-center mb-10">
         <button
-          // ACTION CONFIRMED: Resets selectedGroup to null
           onClick={handleBackToList}
           className="flex items-center bg-gradient-to-r from-accent-teal to-cyan-400 text-white py-3 px-6 rounded-xl font-bold hover:scale-[1.02] transition shadow-2xl shadow-accent-teal/50"
         >
@@ -305,7 +393,6 @@ function ProjectManagement() {
         </button>
       </div>
 
-      {/* Project Information Card (More prominent glass effect) */}
       <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/30 mb-10 shadow-2xl shadow-indigo-500/20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-white text-lg font-medium">
           <InfoPill label="Title" value={selectedGroup.projectTitle} />
@@ -321,7 +408,6 @@ function ProjectManagement() {
         </div>
       </div>
 
-      {/* Evaluation Section */}
       <div className="bg-white/10 backdrop-blur-xl p-8 rounded-2xl border border-white/20 shadow-xl">
         <div className="flex justify-between items-center mb-8 pb-4 border-b border-white/10">
           <h2 className="text-3xl font-extrabold text-white flex items-center">
@@ -334,14 +420,12 @@ function ProjectManagement() {
             )}
           </h2>
           <div className="flex items-center gap-6">
-            {/* Grand Total Pill */}
             <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/30 text-center shadow-inner shadow-black/30">
               <p className="text-white/70 text-sm font-medium">Grand Total</p>
               <p className="text-2xl font-extrabold text-accent-teal">
                 {grandTotal.given} / {grandTotal.total}
               </p>
             </div>
-            {/* SAVE ALL Button (Bolder shadow) */}
             <button
               onClick={handleSaveAllEvaluations}
               disabled={saving}
@@ -352,8 +436,7 @@ function ProjectManagement() {
           </div>
         </div>
 
-        {/* Evaluation Table (Compact UI) */}
-        {selectedGroup.students && selectedGroup.students.length > 0 ? (
+        {selectedGroup.students?.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-white/20">
             <table className="w-full text-white table-auto">
               <thead>
@@ -380,9 +463,6 @@ function ProjectManagement() {
               <tbody>
                 {selectedGroup.students.map((student, idx) => {
                   const studentId = student._id.toString();
-                  const studentName = student.name || "Unknown Student";
-                  const enrollment = student.enrollmentNumber || "N/A";
-
                   const studentTotal = evaluationParameters.reduce(
                     (sum, param) =>
                       sum +
@@ -404,12 +484,13 @@ function ProjectManagement() {
                       }`}
                     >
                       <td className="px-6 py-4 font-bold text-base">
-                        <p className="text-white">{studentName}</p>
+                        <p className="text-white">
+                          {student.name || "Unknown"}
+                        </p>
                         <p className="text-xs text-white/60 font-normal">
-                          {enrollment}
+                          {student.enrollmentNumber || "N/A"}
                         </p>
                       </td>
-
                       {evaluationParameters.map((param) => {
                         const cellKey = `${studentId}_${param._id}`;
                         const value = marksData[cellKey] ?? "";
@@ -428,14 +509,12 @@ function ProjectManagement() {
                                   e.target.value
                                 )
                               }
-                              // Stronger focus ring for better UX
                               className="w-20 sm:w-24 px-3 py-2 text-base font-semibold text-center rounded-lg bg-white/10 border-2 border-white/40 focus:ring-4 focus:ring-cyan-400 focus:border-cyan-400 transition-all outline-none"
                               placeholder="0"
                             />
                           </td>
                         );
                       })}
-
                       <td className="px-6 py-4 text-center">
                         <span className="inline-block bg-gradient-to-r from-accent-teal/90 to-cyan-500/90 text-white font-extrabold text-xl px-4 py-2 rounded-lg shadow-md shadow-black/50">
                           {studentTotal} / {maxTotal}
@@ -456,13 +535,11 @@ function ProjectManagement() {
     </div>
   );
 
-  // --- RENDER LIST VIEW (UI Enhanced) ---
-
   const renderListView = () => (
     <div className="w-full max-w-7xl mx-auto py-12">
       <div className="flex justify-between items-center mb-10">
         <button
-          onClick={() => navigate("/admin/dashboard")}
+          onClick={() => navigate("/dashboard")}
           className="flex items-center bg-gray-700/80 text-white py-3 px-6 rounded-xl font-bold hover:bg-gray-700 hover:scale-[1.02] transition shadow-lg"
         >
           <ChevronLeft size={24} className="mr-2" /> Dashboard
@@ -470,11 +547,38 @@ function ProjectManagement() {
         <h1 className="text-5xl font-extrabold text-white">
           Manage <span className="text-accent-teal">Projects</span>
         </h1>
-        <div className="w-32"></div> {/* Spacer */}
+        <button
+          onClick={() => setShowPdfModal(true)}
+          disabled={pdfLoading}
+          // Enhanced Classes for Dark/Blue Theme
+          className={`
+    flex items-center justify-center gap-2 
+    px-6 py-3 text-lg font-extrabold text-white rounded-xl 
+    bg-gradient-to-r from-teal-500 to-cyan-600 
+    hover:from-teal-400 hover:to-cyan-500
+    shadow-2xl shadow-cyan-500/60 
+    transition-all duration-300 transform 
+    hover:scale-[1.05] relative z-[9999]
+    ${pdfLoading ? "opacity-70 cursor-not-allowed animate-pulse" : ""}
+  `}
+        >
+          {/* Assumes Download icon is imported (Fixes 'X not defined' style issues) */}
+          {pdfLoading ? (
+            <>
+              {/* If you have a spinner component, use it here, e.g., <Spinner /> */}
+              <span className="animate-pulse">Generating…</span>
+            </>
+          ) : (
+            <>
+              <Download size={20} />
+              <span>Create PDF</span>
+            </>
+          )}
+        </button>
+        <div className="w-32"></div>
       </div>
 
-      {/* Filter Section (Glass Panel style) */}
-      <div className="flex flex-wrap gap-5 mb-12 justify-center p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl">
+      <div className="flex flex-wrap gap-5 mb-12 justify-center p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl relative z-10">
         <FilterDropdown
           title="Course"
           options={courseOptions}
@@ -501,14 +605,58 @@ function ProjectManagement() {
         />
       </div>
 
-      {/* Projects Grid (Bolder Hover Effects) */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div
+            className="
+        bg-gray-800/80 p-6 rounded-xl text-white w-96 
+        shadow-xl border border-teal-500/50 relative
+    "
+          >
+            {/* Close Button (Fixed with X icon) */}
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="absolute top-4 right-4 text-white/70 hover:text-teal-400 transition"
+              aria-label="Close modal"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-xl font-bold mb-4 text-center text-teal-400">
+              Export Options 📄
+            </h2>
+
+            {/* Primary Action Button (Vibrant Gradient) */}
+            <button
+              onClick={handleGenerateGroupPdf}
+              className="
+          w-full flex items-center justify-center gap-2 
+          py-2.5 rounded-lg mb-3 font-semibold 
+          bg-gradient-to-r from-teal-500 to-cyan-500 text-white 
+          hover:opacity-90 transition duration-200 
+          shadow-md shadow-cyan-500/40
+        "
+            >
+              <Download size={20} /> Group Evaluations PDF
+            </button>
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="w-full bg-gray-700 text-white py-2.5 rounded-lg font-semibold hover:bg-gray-600 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((project) => (
             <div
               key={project._id}
               onClick={() => handleViewDetails(project)}
-              // Enhanced Card Style: more vibrant hover/shadow and scale
               className="group bg-white/10 backdrop-blur-xl p-8 rounded-2xl border border-white/30 cursor-pointer transition-all duration-300 shadow-xl hover:shadow-cyan-400/50 hover:border-cyan-400 hover:scale-[1.05] transform"
             >
               <h3 className="text-2xl font-extrabold text-accent-teal mb-4 group-hover:text-cyan-400 transition">
@@ -529,7 +677,6 @@ function ProjectManagement() {
                   value={project.students?.length || 0}
                 />
               </div>
-              {/* Card Button (Vibrant Gradient) */}
               <button className="mt-6 flex items-center justify-center w-full bg-gradient-to-r from-accent-teal to-cyan-500 text-white py-3 rounded-xl font-extrabold group-hover:from-cyan-400 group-hover:to-teal-400 transition transform hover:scale-[1.02] shadow-lg">
                 View Evaluation <List size={20} className="ml-2" />
               </button>
@@ -544,10 +691,7 @@ function ProjectManagement() {
     </div>
   );
 
-  // --- Final Return ---
-
   return (
-    // Updated background gradient for a deep, tech-inspired look (Black/Indigo/Teal)
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-teal-950 text-white font-sans px-4 sm:px-6 lg:px-8">
       {selectedGroup ? renderDetailsView() : renderListView()}
     </div>

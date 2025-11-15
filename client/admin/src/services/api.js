@@ -118,6 +118,10 @@ export const projectEvaluationAPI = {
   getByProject: (groupId) => api.get(`/get-group-evaluation/${groupId}`),
   saveAll: (groupId, evaluations) =>
     api.post(`/save-all-project-evaluations/${groupId}`, { evaluations }),
+  getAllEvaluations: async () => {
+    const response = await api.get("/get-all-evaluations");
+    return response.data; // { success: true, data: [...] }
+  },
 };
 // ✅ Guide Announcements API
 export const guideAnnouncementAPI = {
