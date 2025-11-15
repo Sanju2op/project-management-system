@@ -94,11 +94,12 @@ function ProjectManagement() {
   const courseOptions = useMemo(() => {
     const set = new Set(["All"]);
     projects.forEach((p) => {
-      if (p.division?.course) set.add(p.division.course);
+      if (p.division?.course && p.division?.semester) {
+        set.add(`${p.division.course} ${p.division.semester}`);
+      }
     });
     return Array.from(set);
   }, [projects]);
-
   const yearOptions = useMemo(() => {
     const years = new Set(["All"]);
 
@@ -117,17 +118,13 @@ function ProjectManagement() {
 
     return Array.from(statuses);
   }, [projects]);
-
   // --- Fetch Groups + Parameters ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const [groupsRes, paramsRes] = await Promise.all([
-          groupAPI.getAll({
-            course: courseFilter === "All" ? undefined : courseFilter,
-            year: yearFilter === "All" ? undefined : yearFilter,
-          }),
+          groupAPI.getAll(), // Remove filters from API call
           evaluationParameterAPI.getAll(),
         ]);
 
@@ -142,7 +139,7 @@ function ProjectManagement() {
       }
     };
     fetchData();
-  }, [courseFilter, yearFilter]);
+  }, []); // Remove courseFilter & yearFilter from dependency array
 
   // --- Fetch ALL Evaluations (for PDF) ---
   // ---- inside the useEffect that fetches ALL evaluations ----
@@ -299,7 +296,23 @@ function ProjectManagement() {
   ];
   const filteredProjects = projects.filter((p) => {
     const tech = p.projectTechnology || "";
+
+    // Split selected courseFilter into course + semester
+    let selectedCourse = "";
+    let selectedSemester = "";
+    if (courseFilter !== "All") {
+      const parts = courseFilter.split(" ");
+      selectedCourse = parts[0];
+      selectedSemester = parts[1];
+    }
+
+    const courseMatch =
+      courseFilter === "All" ||
+      (p.division?.course === selectedCourse &&
+        String(p.division?.semester) === selectedSemester);
+
     return (
+      courseMatch &&
       (statusFilter === "All" || p.status === statusFilter) &&
       (techFilter === "All" || tech === techFilter)
     );
@@ -313,7 +326,7 @@ function ProjectManagement() {
   const [showPdfModal, setShowPdfModal] = useState(false);
 
   const handleGenerateGroupPdf = async () => {
-    if (!projects.length || !evaluationParameters.length) {
+    if (!filteredProjects.length || !evaluationParameters.length) {
       toast.error("No data to export");
       return;
     }
@@ -321,8 +334,11 @@ function ProjectManagement() {
     setPdfLoading(true);
     try {
       generateGroupEvaluationsPDF({
-        groups: projects.map((g) => ({
+        groups: filteredProjects.map((g) => ({
           ...g,
+          courseSemester: `${g.division?.course || "N/A"} ${
+            g.division?.semester || ""
+          }`,
           students:
             g.students ||
             g.membersSnapshot?.map((m) => ({
@@ -674,6 +690,13 @@ function ProjectManagement() {
               <h3 className="text-2xl font-extrabold text-accent-teal mb-4 group-hover:text-cyan-400 transition">
                 {project.projectTitle}
               </h3>
+              <ProjectInfoItem
+                label="Course / Semester"
+                value={`${project.division?.course || "N/A"} ${
+                  project.division?.semester || ""
+                }`}
+              />
+
               <div className="space-y-3 text-white/90 font-medium">
                 <ProjectInfoItem
                   label="Tech"
