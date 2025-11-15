@@ -10,9 +10,12 @@ import {
   X,
   ChevronDown,
   List,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { divisionAPI, enrollmentAPI } from "../../services/api";
+
+import generateStudentListPDF from "../../utils/pdf/generateStudentListPDF"; // <-- NEW
 
 // Reusable FilterDropdown component
 const FilterDropdown = ({
@@ -527,6 +530,18 @@ function ManageDivisions() {
                 aria-label="Delete all enrollments"
               >
                 <Trash2 size={20} className="mr-2" /> Delete All
+              </button>
+              <button
+                onClick={() => {
+                  const enrollments = getDivisionEnrollments(
+                    selectedDivision._id
+                  );
+                  generateStudentListPDF(selectedDivision, enrollments);
+                }}
+                className="flex items-center bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 hover:scale-105 transition-all duration-300 shadow-neumorphic border border-white/20 backdrop-blur-sm animate-pulse-once"
+                aria-label="Generate PDF"
+              >
+                <FileText size={20} className="mr-2" /> Generate PDF
               </button>
             </div>
           </div>
