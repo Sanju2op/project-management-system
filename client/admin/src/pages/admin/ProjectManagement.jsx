@@ -169,16 +169,17 @@ function ProjectManagement() {
     const byId = {};
 
     allEvaluations.forEach((ev) => {
-      const groupId = ev.projectId._id;
-      const studentId = ev.studentId._id;
-      const enrollment = ev.studentId.enrollmentNumber;
+      const groupId = ev.projectId?._id || ev.projectId;
+      const studentId = ev.studentId?._id || ev.studentId;
+      const enrollment = ev.studentId?.enrollmentNumber || studentId;
 
       if (!byId[groupId]) byId[groupId] = {};
       if (!byEnrollment[groupId]) byEnrollment[groupId] = {};
 
       const marksObj = {};
-      ev.evaluations.forEach(({ parameterId, marks }) => {
-        marksObj[parameterId._id] = marks;
+      (ev.evaluations || []).forEach(({ parameterId, marks }) => {
+        const paramId = parameterId?._id || parameterId;
+        marksObj[paramId] = marks;
       });
 
       byId[groupId][studentId] = marksObj;
@@ -187,6 +188,7 @@ function ProjectManagement() {
 
     return { byId, byEnrollment };
   }, [allEvaluations]);
+
   // ---- build the map (useMemo) ----
   // ──────────────────────────────────────────────────────────────
   //  Replace ONLY this block (around line 140) in ProjectManagement.jsx
@@ -205,12 +207,11 @@ function ProjectManagement() {
           students: groupData.students?.length
             ? groupData.students
             : groupData.membersSnapshot?.map((m) => ({
-                _id: m.studentRef?._id,
-                name: m.studentRef?.name || "Unknown",
+                _id: m.studentRef?._id || m._id,
+                name: m.studentRef?.name || m.name || "Unknown",
                 enrollmentNumber: m.studentRef?.enrollmentNumber || "N/A",
               })) || [],
         });
-
         const marks = {};
         (groupData.evaluations || []).forEach((evDoc) => {
           const studentId =
@@ -320,10 +321,21 @@ function ProjectManagement() {
     setPdfLoading(true);
     try {
       generateGroupEvaluationsPDF({
-        groups: projects,
+        groups: projects.map((g) => ({
+          ...g,
+          students:
+            g.students ||
+            g.membersSnapshot?.map((m) => ({
+              _id: m.studentRef?._id || m._id,
+              name: m.studentRef?.name || m.name || "Unknown",
+              enrollmentNumber: m.studentRef?.enrollmentNumber || "N/A",
+            })) ||
+            [],
+        })),
         parameters: evaluationParameters,
         evaluationsMap,
       });
+
       toast.success("PDF Generated!");
     } catch (err) {
       toast.error("PDF generation failed");

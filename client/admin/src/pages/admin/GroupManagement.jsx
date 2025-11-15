@@ -138,18 +138,20 @@ function GroupManagement() {
         setGuides(guidesResponse.data.data || guidesResponse.data || []);
 
         // Fetch groups with filters
-        const groupsParams = {
-          course:
-            selectedClassFilter !== "All"
-              ? selectedClassFilter.split(" ")[0]
-              : undefined,
-          semester:
-            selectedClassFilter !== "All"
-              ? Number(selectedClassFilter.split(" ")[1])
-              : undefined,
-          year:
-            selectedYearFilter !== "All Years" ? selectedYearFilter : undefined,
-        };
+        const groupsParams = {};
+
+        // CLASS FILTER
+        if (selectedClassFilter && selectedClassFilter !== "All") {
+          const [course, semester] = selectedClassFilter.split(" ");
+          groupsParams.course = course;
+          groupsParams.semester = Number(semester);
+        }
+
+        // YEAR FILTER
+        if (selectedYearFilter !== "All Years") {
+          groupsParams.year = Number(selectedYearFilter);
+        }
+
         const groupsResponse = await axios.get(
           `${API_BASE_URL}/admin/get-groups`,
           {
@@ -497,7 +499,8 @@ function GroupManagement() {
                 />
                 <p className="font-semibold">Course:</p>
                 <span className="ml-2">
-                  {selectedGroup.members[0]?.className}
+                  {selectedGroup.division?.course}{" "}
+                  {selectedGroup.division?.semester}
                 </span>
               </div>
               <div className="flex items-center">
@@ -599,9 +602,14 @@ function GroupManagement() {
                     <span className="font-semibold text-lg text-white">
                       {member.name}
                     </span>
-                    <div className="text-sm text-white/80 flex items-center">
-                      <Hash size={16} className="mr-1 text-accent-teal" />
-                      <span>{member.enrollment}</span>
+                    <div className="text-sm text-white/80">
+                      {member.enrollment}
+                    </div>
+
+                    {/* ⭐ ADD THIS LINE ⭐ */}
+                    <div className="text-xs text-white/60">
+                      {selectedGroup.division?.course}{" "}
+                      {selectedGroup.division?.semester}
                     </div>
                   </div>
                 </div>
@@ -749,7 +757,8 @@ function GroupManagement() {
                             {student.enrollmentNumber}
                           </div>
                           <div className="text-xs text-white/60">
-                            {student.className}
+                            {selectedGroup.division?.course}{" "}
+                            {selectedGroup.division?.semester}
                           </div>
                         </div>
                       </div>

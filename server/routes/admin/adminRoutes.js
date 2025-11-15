@@ -127,8 +127,8 @@ router.delete("/guides/:id", deleteGuide);
 // get groups for the guides
 router.get("/admin/get-groups-by-guide/:guideId", getGroupsByGuide);
 
-// GET /api/admin/get-groups?year=2025
-router.get("/get-groups", getGroupsByYearOrCourse);
+// // GET /api/admin/get-groups?year=2025
+// router.get("/get-groups", getGroupsByYearOrCourse);
 
 // GET /api/admin/get-divisions
 router.get("/get-divisions", getDivisions);

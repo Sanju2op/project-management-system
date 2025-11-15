@@ -733,18 +733,38 @@ export const getAvailableStudentsForGroup = async (req, res) => {
 export const getGroups = async (req, res) => {
   try {
     const { course, semester, year } = req.query;
+
+    // ------------------------------
+    // BUILD FILTER FOR GROUPS
+    // ------------------------------
     const filter = {};
-    if (course) filter["division.course"] = course; // Assuming populated division
-    if (semester) filter["division.semester"] = Number(semester);
     if (year) filter.year = Number(year);
 
+    // Division-based filters (course + semester)
+    const divisionFilter = {};
+    if (course) divisionFilter.course = course;
+    if (semester) divisionFilter.semester = Number(semester);
+
+    // Fetch divisions if course/semester filter exists
+    let divisionIds = null;
+    if (course || semester) {
+      const divisions = await Division.find(divisionFilter).select("_id");
+      divisionIds = divisions.map((d) => d._id);
+      filter.division = { $in: divisionIds };
+    }
+
+    // ------------------------------
+    // FETCH GROUPS WITH POPULATES
+    // ------------------------------
     const groups = await Group.find(filter)
       .populate("guide", "name email expertise phone")
       .populate("division", "course semester year")
       .populate("students", "name enrollmentNumber division")
       .exec();
 
-    // Format members snapshot for frontend (fallback to students if snapshot empty)
+    // ------------------------------
+    // FORMAT RESPONSE
+    // ------------------------------
     const formattedGroups = groups.map((g) => ({
       _id: g._id,
       name: g.name,
@@ -753,6 +773,7 @@ export const getGroups = async (req, res) => {
       projectDescription: g.projectDescription,
       projectTechnology: g.projectTechnology,
       status: g.status,
+
       guide: g.guide
         ? {
             _id: g.guide._id,
@@ -762,6 +783,8 @@ export const getGroups = async (req, res) => {
             phone: g.guide.phone,
           }
         : null,
+
+      // MEMBERS
       members:
         g.membersSnapshot.length > 0
           ? g.membersSnapshot.map((m) => ({
@@ -772,18 +795,32 @@ export const getGroups = async (req, res) => {
           : g.students.map((s) => ({
               name: s.name,
               enrollment: s.enrollmentNumber,
-              className: `${s.division.course} ${s.division.semester}`,
+              className: `${s.division?.course || ""} ${
+                s.division?.semester || ""
+              }`,
             })),
-      divisionId: g.division._id, // For available students fetch
+
+      // DIVISION INCLUDED HERE
+      division: g.division
+        ? {
+            _id: g.division._id,
+            course: g.division.course,
+            semester: g.division.semester,
+            year: g.division.year,
+          }
+        : null,
     }));
 
+    // ------------------------------
+    // FINAL RESPONSE
+    // ------------------------------
     res.status(200).json({
       success: true,
       count: formattedGroups.length,
       data: formattedGroups,
     });
   } catch (err) {
-    console.error("❌ Error fetching groups:", err.message);
+    console.error("❌ Error fetching groups:", err);
     res
       .status(500)
       .json({ success: false, message: "Server error while fetching groups" });
