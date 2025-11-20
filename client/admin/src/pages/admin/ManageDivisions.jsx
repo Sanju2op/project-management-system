@@ -669,18 +669,18 @@ function ManageDivisions() {
                 <button
                   onClick={() => handleToggleStatus(division)}
                   className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                    division.status === "Active"
+                    division.status === "active"
                       ? "bg-gradient-to-r from-accent-teal to-cyan-400"
                       : "bg-gray-600/80"
                   } text-white hover:scale-110 transition-all duration-300 shadow-sm hover:shadow-md`}
                   title={
-                    division.status === "Active"
+                    division.status === "active"
                       ? "Set to Inactive"
                       : "Set to Active"
                   }
                   aria-label={`Toggle status for ${division.course} Sem${division.semester} ${division.year}`}
                 >
-                  {division.status === "Active" ? (
+                  {division.status === "active" ? (
                     <Eye size={24} />
                   ) : (
                     <EyeOff size={24} />

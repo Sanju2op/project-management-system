@@ -77,7 +77,7 @@ function ExamScheduleManagement() {
   const [currentGuideAnnouncement, setCurrentGuideAnnouncement] =
     useState(null);
   const [scheduleForm, setScheduleForm] = useState({
-    course: "",
+    course: [],
     type: "Exam",
     description: "",
     date: "",
@@ -188,38 +188,52 @@ function ExamScheduleManagement() {
   };
 
   const handleAddEditSchedule = async () => {
+    // Debug line – comment mat karna abhi ke liye
+    console.log("Form Data:", scheduleForm);
+
     if (
       !scheduleForm.course ||
-      !scheduleForm.type ||
-      !scheduleForm.description ||
+      scheduleForm.course === "" ||
+      !scheduleForm.description.trim() ||
       !scheduleForm.date
     ) {
-      alert("Please fill all required fields");
+      alert(
+        "Please select a division, enter a description, and choose a date."
+      );
       return;
     }
 
     try {
+      const payload = {
+        course: scheduleForm.course,
+        type: scheduleForm.type,
+        description: scheduleForm.description,
+        date: scheduleForm.date,
+        time: scheduleForm.time || undefined,
+      };
+
       if (currentSchedule) {
-        await examScheduleAPI.update(currentSchedule._id, scheduleForm);
+        await examScheduleAPI.update(currentSchedule._id, payload);
       } else {
-        await examScheduleAPI.create(scheduleForm);
+        await examScheduleAPI.create(payload);
       }
+
+      // Success
       setIsScheduleModalOpen(false);
+      setCurrentSchedule(null);
       setScheduleForm({
-        course: "BCA",
+        course: "",
         type: "Exam",
         description: "",
         date: "",
         time: "",
       });
-      setCurrentSchedule(null);
-      fetchSchedules(); // Refresh the list
+
+      fetchSchedules();
     } catch (error) {
       alert(error.response?.data?.message || "Failed to save schedule");
-      console.error("Error saving schedule:", error);
     }
   };
-
   const handleDeleteSchedule = async (id) => {
     setDeleteItem(id);
     setDeleteType("schedule");
@@ -335,17 +349,24 @@ function ExamScheduleManagement() {
   const openScheduleModal = (schedule = null) => {
     setCurrentSchedule(schedule);
     setScheduleForm(
-      schedule || {
-        course: "BCA",
-        type: "Exam",
-        description: "",
-        date: "",
-        time: "",
-      }
+      schedule
+        ? {
+            courses: schedule.courses || [], // assuming backend supports array
+            type: schedule.type,
+            description: schedule.description,
+            date: schedule.date.split("T")[0], // format date
+            time: schedule.time || "",
+          }
+        : {
+            courses: [],
+            type: "Exam",
+            description: "",
+            date: "",
+            time: "",
+          }
     );
     setIsScheduleModalOpen(true);
   };
-
   const openCourseAnnouncementModal = (announcement = null) => {
     setCurrentCourseAnnouncement(announcement);
     setCourseAnnouncementForm(
@@ -528,7 +549,16 @@ function ExamScheduleManagement() {
                           key={schedule._id}
                           className="border-b border-white/20 hover:bg-white/10 animate-fade-in-up"
                         >
-                          <td className="p-2">{schedule.course}</td>
+                          <td className="p-2">
+                            {schedule.course} {/* ← backend se jo aaya */}
+                            <span className="text-cyan-300 ml-2">
+                              (Sem{" "}
+                              {divisions.find(
+                                (d) => d.course === schedule.course
+                              )?.semester || "-"}
+                              )
+                            </span>
+                          </td>
                           <td className="p-2">{schedule.type}</td>
                           <td className="p-2">{schedule.description}</td>
                           <td className="p-2">
@@ -736,22 +766,34 @@ function ExamScheduleManagement() {
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-white/90 mb-1">Course</label>
+                    <label className="block text-white/90 mb-1 font-medium">
+                      Division <span className="text-red-400">*</span>
+                    </label>
                     <select
-                      value={scheduleForm.course}
+                      value={scheduleForm.course} // ← sirf course (BCA, BBA, etc.)
                       onChange={(e) =>
                         setScheduleForm({
                           ...scheduleForm,
                           course: e.target.value,
                         })
                       }
-                      className="w-full bg-gray-800 text-white p-2 rounded-lg border border-white/30"
-                      aria-label="Select course"
+                      className="w-full bg-gray-800 text-white p-3 rounded-lg border border-white/30 focus:border-cyan-500 focus:outline-none transition"
+                      required
                     >
-                      <option value="BCA">BCA</option>
-                      <option value="MCA">MCA</option>
+                      <option value="" disabled>
+                        -- Select Division --
+                      </option>
+                      {divisions.map((division) => (
+                        <option
+                          key={division._id}
+                          value={division.course} // ← backend ko sirf "BCA", "BBA" jayega
+                        >
+                          {division.course} - Semester {division.semester}{" "}
+                          {/* ← yahan full dikhega */}
+                        </option>
+                      ))}
                     </select>
-                  </div>
+                  </div>{" "}
                   <div>
                     <label className="block text-white/90 mb-1">Type</label>
                     <select

@@ -5,12 +5,12 @@ const examScheduleSchema = new mongoose.Schema(
     course: {
       type: String,
       required: true,
-      enum: ["BCA", "MCA"],
+      uppercase: true,
     },
     type: {
       type: String,
       required: true,
-      enum: ["Exam", "Submission"],
+      enum: ["Exam", "Submission", "Practical", "Viva"],
     },
     description: {
       type: String,

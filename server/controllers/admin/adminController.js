@@ -1667,14 +1667,6 @@ export const addExamSchedule = async (req, res) => {
       });
     }
 
-    // Validate enums
-    if (!["BCA", "MCA"].includes(course)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid course. Must be BCA or MCA",
-      });
-    }
-
     if (!["Exam", "Submission"].includes(type)) {
       return res.status(400).json({
         success: false,
@@ -1719,14 +1711,6 @@ export const updateExamSchedule = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Course, type, description, and date are required",
-      });
-    }
-
-    // Validate enums
-    if (!["BCA", "MCA"].includes(course)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid course. Must be BCA or MCA",
       });
     }
 
