@@ -69,45 +69,41 @@ export default function ProjectEvaluation() {
   }, []);
 
   const submitEvaluation = async () => {
-    if (!selectedProject) {
-      toast.warning("Select a project first!", defaultToastOptions);
-      return;
-    }
-
-    const groupId = selectedProject._id || selectedProject.id;
-    if (!groupId) {
-      toast.error("Invalid project ID", defaultToastOptions);
-      return;
-    }
-
-    const evaluations = [];
-
-    // UPDATED: Use helper functions for consistent IDs
-    selectedProject.members.forEach((member) => {
-      const studentId = getStudentId(member);
-      if (!studentId) return;
-
-      evaluationCriteria.forEach((param) => {
-        const paramId = getCriteriaId(param);
-        if (!paramId) return;
-
-        const key = createEvaluationKey(member, param); // Consistent Key
-        const marks = Number(evaluationForm[key] || 0);
-        evaluations.push({ student: studentId, parameter: paramId, marks });
-      });
-    });
-
-    if (!evaluations.length) {
-      toast.warning("No evaluation data to save", defaultToastOptions);
-      return;
-    }
-
     try {
-      await guidePanelAPI.saveEvaluation(groupId, evaluations);
-      toast.success("Evaluation saved successfully!", defaultToastOptions);
+      if (!selectedProject) {
+        toast.error("No project selected");
+        return;
+      }
+
+      const groupId = selectedProject._id || selectedProject.id;
+
+      const finalEvaluations = [];
+
+      // evaluationForm keys: "studentId_parameterId"
+      Object.entries(evaluationForm).forEach(([key, value]) => {
+        const [studentId, parameterId] = key.split("_");
+        const marks = Number(value);
+
+        if (!studentId || !parameterId) {
+          console.error("Invalid key found:", key);
+          return;
+        }
+
+        finalEvaluations.push({
+          student: studentId,
+          parameter: parameterId,
+          marks,
+        });
+      });
+
+      console.log("📤 Sending payload:", finalEvaluations);
+
+      await guidePanelAPI.saveEvaluation(groupId, finalEvaluations);
+
+      toast.success("Evaluation saved successfully!");
     } catch (err) {
       console.error("❌ Error submitting evaluation:", err);
-      toast.error("Failed to save evaluation", defaultToastOptions);
+      toast.error("Failed to save evaluation");
     }
   };
   const downloadDocument = (documentName) => {
@@ -162,94 +158,97 @@ export default function ProjectEvaluation() {
                   // ... (inside the project list map)
                   <div
                     key={project._id || project.id}
+                    // ------------------ REPLACE the current onClick handler with this ------------------
                     onClick={async () => {
-                      // 🧩 Normalize members (ensures _id + name always exist)
-                      const normalizedMembers = project.members.map((m) =>
-                        typeof m === "object"
-                          ? { _id: m._id || m.id, name: m.name }
-                          : { _id: m, name: m }
-                      );
-
-                      setSelectedProject({
-                        ...project,
-                        members: normalizedMembers,
-                      });
-
                       try {
-                        // 🔍 Fetch evaluation data for this group/project
-                        const res = await guidePanelAPI.getEvaluationByGroup(
-                          project._id || project.id
+                        // 1) Normalize the project identity
+                        const projectId = project._id || project.id;
+
+                        // 2) Fetch full project evaluation payload from backend
+                        const resp = await guidePanelAPI.getEvaluationByGroup(
+                          projectId
                         );
 
-                        // ✅ Safely handle both API response shapes
-                        const evaluationsData =
-                          res?.data?.data?.evaluations ||
-                          res?.evaluations ||
-                          [];
-
-                        console.log("📦 Evaluations fetched:", evaluationsData);
-
-                        if (
-                          !Array.isArray(evaluationsData) ||
-                          evaluationsData.length === 0
-                        ) {
-                          toast.info(
-                            "No previous evaluations found",
+                        // resp assumed shape: { success: true, data: { ...group fields..., students: [...], evaluations: [...] } }
+                        const payload = resp?.data || resp; // handle both response shapes
+                        if (!payload) {
+                          toast.error(
+                            "Invalid response from server",
                             defaultToastOptions
                           );
-                          setEvaluationForm({});
                           return;
                         }
 
-                        // 🧠 CRITICAL FIX: Map API response into your formState
-                        const formState = {};
+                        // 3) Get students (from payload) — fallback to project.members if payload has none
+                        const students =
+                          payload.students && Array.isArray(payload.students)
+                            ? payload.students
+                            : (project.members || []).map((m) =>
+                                typeof m === "object"
+                                  ? { _id: m._id || m.id, name: m.name }
+                                  : { _id: m, name: m }
+                              );
 
-                        // Loop over the top-level array (which contains one object per student)
-                        evaluationsData.forEach((studentEvaluation) => {
-                          // 1. Get the ID for the student
-                          // The studentId field is likely a populated object, so we check studentId._id first.
-                          // If the field is just the string ID, we use it directly.
-                          const studentId =
-                            studentEvaluation.studentId?._id ||
-                            studentEvaluation.studentId;
+                        // 4) Get evaluation documents (one doc per student) from payload (may be at payload.evaluations)
+                        const evalDocs =
+                          payload.evaluations &&
+                          Array.isArray(payload.evaluations)
+                            ? payload.evaluations
+                            : [];
 
-                          if (!studentId) {
-                            console.warn(
-                              "Skipping evaluation due to missing Student ID",
-                              studentEvaluation
+                        // 5) Merge students with their evaluations
+                        const mergedMembers = students.map((stu) => {
+                          const match = evalDocs.find((e) => {
+                            // compare id strings safely
+                            const evalStudentId =
+                              e.studentId?._id?.toString?.() ||
+                              e.studentId?.toString?.();
+                            const stuId = stu._id?.toString?.();
+                            return (
+                              evalStudentId && stuId && evalStudentId === stuId
                             );
-                            return;
-                          }
+                          });
 
-                          // 2. Loop over the nested evaluations array
-                          const evaluationItems =
-                            studentEvaluation.evaluations || [];
-                          if (Array.isArray(evaluationItems)) {
-                            evaluationItems.forEach((evaluationItem) => {
-                              // 3. Get the ID for the parameter (criteria)
-                              // The parameterId field is likely a populated object.
-                              const paramId =
-                                evaluationItem.parameterId?._id ||
-                                evaluationItem.parameterId;
-
-                              if (!paramId) {
-                                console.warn(
-                                  "Skipping evaluation item due to missing Parameter ID",
-                                  evaluationItem
-                                );
-                                return;
-                              }
-
-                              // 4. Construct the consistent key (e.g., "stdID_paramID")
-                              const key = `${studentId}_${paramId}`;
-
-                              // 5. Store the marks, ensuring an empty string if marks is null/undefined
-                              formState[key] = evaluationItem.marks ?? "";
-                            });
-                          }
+                          return {
+                            _id: stu._id,
+                            name: stu.name,
+                            enrollmentNumber: stu.enrollmentNumber,
+                            evaluations: Array.isArray(match?.evaluations)
+                              ? match.evaluations
+                              : [],
+                          };
                         });
 
-                        console.log("✅ Final formState:", formState);
+                        // 6) Build evaluationForm key/value map so inputs show marks
+                        const formState = {};
+                        mergedMembers.forEach((member) => {
+                          const sid = member._id;
+                          (member.evaluations || []).forEach((ev) => {
+                            const pid = ev.parameterId?._id || ev.parameterId;
+                            if (!pid || !sid) return;
+                            const key = `${sid}_${pid}`;
+                            formState[key] = ev.marks ?? "";
+                          });
+                        });
+
+                        // 7) Set the selectedProject (use project base data + merged members + any other payload fields you want)
+                        setSelectedProject({
+                          ...project,
+                          // keep project fields (title/technology etc) and override members with mergedMembers
+                          members: mergedMembers,
+                          // you can also keep payload fields if needed
+                          projectTitle:
+                            payload.projectTitle || project.projectTitle,
+                          projectTechnology:
+                            payload.projectTechnology ||
+                            project.projectTechnology,
+                          submittedDate:
+                            payload.submittedDate || project.submittedDate,
+                          lastEvaluation:
+                            payload.lastEvaluation || project.lastEvaluation,
+                        });
+
+                        // 8) Set form with loaded values
                         setEvaluationForm(formState);
 
                         toast.success(

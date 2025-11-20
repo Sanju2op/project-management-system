@@ -78,7 +78,12 @@ export const saveAllProjectEvaluations = async (req, res) => {
     const upsertOps = Object.entries(grouped).map(([studentId, evals]) =>
       ProjectEvaluation.findOneAndUpdate(
         { projectId: groupId, studentId },
-        { $set: { evaluations: evals, evaluatedBy: req.admin._id } },
+        {
+          $set: {
+            evaluations: evals,
+            evaluatedBy: req.admin?._id || req.guide?._id || null,
+          },
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       )
     );
