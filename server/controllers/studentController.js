@@ -3,6 +3,7 @@ import Division from "../models/division.js";
 import Group from "../models/group.js";
 import jwt from "jsonwebtoken";
 import { notificationAPI } from "../../client/student/src/services/api.js";
+import Announcement from "../models/courseAnnouncement.js";
 
 // GET /api/student/divisions - list active divisions
 export const getActiveDivisions = async (req, res) => {
@@ -268,6 +269,16 @@ export const createGroup = async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to create group", error: error.message });
+  }
+};
+
+export const getAllAnnouncements = async (req, res) => {
+  try {
+    const announcements = await Announcement.find().sort({ date: -1 });
+    res.status(200).json(announcements);
+  } catch (error) {
+    console.error("Error fetching announcements:", error);
+    res.status(500).json({ message: "Failed to fetch announcements" });
   }
 };
 

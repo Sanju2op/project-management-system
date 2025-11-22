@@ -1,5 +1,15 @@
 import express from "express";
-import { getActiveDivisions, getPendingEnrollments, registerStudent, loginStudent, checkStudentGroup, getAvailableStudents, createGroup, getStudentProfile } from "../controllers/studentController.js";
+import {
+  getActiveDivisions,
+  getPendingEnrollments,
+  registerStudent,
+  loginStudent,
+  checkStudentGroup,
+  getAvailableStudents,
+  createGroup,
+  getStudentProfile,
+  getAllAnnouncements,
+} from "../controllers/studentController.js";
 import { protectStudent } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
@@ -15,6 +25,6 @@ router.get("/check-group", protectStudent, checkStudentGroup);
 router.get("/available-students", protectStudent, getAvailableStudents);
 router.post("/create-group", protectStudent, createGroup);
 
+router.get("/announcements", getAllAnnouncements);
+
 export default router;
-
-
