@@ -4,6 +4,7 @@ import Group from "../models/group.js";
 import jwt from "jsonwebtoken";
 import { notificationAPI } from "../../client/student/src/services/api.js";
 import Announcement from "../models/courseAnnouncement.js";
+import ExamSchedule from "../models/examSchedule.js";
 
 // GET /api/student/divisions - list active divisions
 export const getActiveDivisions = async (req, res) => {
@@ -123,6 +124,34 @@ export const loginStudent = async (req, res) => {
   }
 };
 
+// Get schedules for logged-in student
+export const getStudentExamSchedules = async (req, res) => {
+  try {
+    const studentId = req.student._id;
+
+    // Fetch student with division
+    const student = await Student.findById(studentId).populate("division");
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const division = student.division;
+    if (!division) {
+      return res.status(400).json({ message: "Student division not found" });
+    }
+
+    // Extract course from division
+    const course = division.course; // Example: "MCA", "BCA", "MSCIT"
+
+    // Fetch ONLY this course's exam schedules
+    const schedules = await ExamSchedule.find({ course }).sort({ date: 1 });
+
+    return res.json({ schedules });
+  } catch (error) {
+    console.log("Exam schedule error:", error);
+    res.status(500).json({ message: "Failed to fetch exam schedules" });
+  }
+};
 // GET /api/student/check-group - check if student is in any group
 export const checkStudentGroup = async (req, res) => {
   try {

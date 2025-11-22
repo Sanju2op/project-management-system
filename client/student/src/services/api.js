@@ -54,6 +54,15 @@ export const studentProtectedAPI = {
     });
   },
 
+  getExamSchedules: () => {
+    const token = localStorage.getItem("studentToken");
+    return apiRequest("/student/exam-schedules", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
   getAvailableStudents: () => {
     const token = localStorage.getItem("studentToken");
     return apiRequest("/student/available-students", {

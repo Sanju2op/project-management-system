@@ -1,10 +1,21 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  FileText, Users, MessageSquare, Bell, Calendar, User,
-  Settings, LogOut, Key, BookOpen, Award, Clock, TrendingUp
-} from 'lucide-react';
-import { studentProtectedAPI } from '../services/api';
+  FileText,
+  Users,
+  MessageSquare,
+  Bell,
+  Calendar,
+  User,
+  Settings,
+  LogOut,
+  Key,
+  BookOpen,
+  Award,
+  Clock,
+  TrendingUp,
+} from "lucide-react";
+import { studentProtectedAPI } from "../services/api";
 
 function StudentDashboard() {
   const navigate = useNavigate();
@@ -16,7 +27,7 @@ function StudentDashboard() {
   const settingsIconRef = useRef(null);
 
   // Get auth token
-  const getToken = () => localStorage.getItem('studentToken');
+  const getToken = () => localStorage.getItem("studentToken");
 
   // Fetch student data and group status on component mount
   useEffect(() => {
@@ -24,7 +35,7 @@ function StudentDashboard() {
       try {
         const token = getToken();
         if (!token) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
 
@@ -33,7 +44,7 @@ function StudentDashboard() {
           const profileData = await studentProtectedAPI.getProfile();
           setStudentData(profileData);
         } catch (profileError) {
-          console.error('Error fetching profile:', profileError);
+          console.error("Error fetching profile:", profileError);
         }
 
         // Check group status
@@ -44,10 +55,10 @@ function StudentDashboard() {
             setGroup(groupData.group);
           }
         } catch (groupError) {
-          console.error('Error fetching group status:', groupError);
+          console.error("Error fetching group status:", groupError);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       }
     };
 
@@ -66,38 +77,44 @@ function StudentDashboard() {
         setIsSettingsMenuOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  const goToProjectSubmission = () => navigate('/student/project-submission');
-  const goToGroupManagement = () => navigate('/student/group-management');
-  const goToFeedback = () => navigate('/student/feedback');
-  const goToAnnouncements = () => navigate('/student/announcements');
-  const goToExamSchedules = () => navigate('/student/exam-schedules');
-  const goToGuideDetails = () => navigate('/student/guide-details');
-  const goToProfile = () => navigate('/student/profile');
-  const goToGroupChat = () => navigate('/student/group-chat');
-  const goToCreateGroup = () => navigate('/student/create-group');
+  const goToProjectSubmission = () => navigate("/student/project-submission");
+  const goToGroupManagement = () => navigate("/student/group-management");
+  const goToFeedback = () => navigate("/student/feedback");
+  const goToAnnouncements = () => navigate("/student/announcements");
+  const goToExamSchedules = () => navigate("/student/exam-schedules");
+  const goToGuideDetails = () => navigate("/student/guide-details");
+  const goToProfile = () => navigate("/student/profile");
+  const goToGroupChat = () => navigate("/student/group-chat");
+  const goToCreateGroup = () => navigate("/student/create-group");
 
   const handleProfileSettings = () => {
     setIsSettingsMenuOpen(false);
-    navigate('/student/profile');
+    navigate("/student/profile");
   };
 
   const handleChangePassword = () => {
     setIsSettingsMenuOpen(false);
-    navigate('/student/settings');
+    navigate("/student/settings");
   };
 
   const handleLogout = () => {
     setIsSettingsMenuOpen(false);
-    navigate('/login');
+    navigate("/login");
   };
 
-  const DashboardCard = ({ icon: Icon, title, description, onClick, index }) => (
+  const DashboardCard = ({
+    icon: Icon,
+    title,
+    description,
+    onClick,
+    index,
+  }) => (
     <div
       className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 backdrop-blur-xl p-8 rounded-2xl border border-white/10 hover:scale-105 transition-all duration-300 flex flex-col items-center text-center group cursor-pointer"
       style={{ animationDelay: `${index * 0.1}s` }}
@@ -107,7 +124,9 @@ function StudentDashboard() {
         <Icon size={40} className="text-white" />
       </div>
       <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
-      {description && <p className="text-white/70 text-sm mb-4 flex-grow">{description}</p>}
+      {description && (
+        <p className="text-white/70 text-sm mb-4 flex-grow">{description}</p>
+      )}
       <button className="text-blue-300 hover:text-white text-sm font-semibold transition-colors duration-200">
         Explore →
       </button>
@@ -130,7 +149,7 @@ function StudentDashboard() {
 
   // If student is not in a group, redirect to create group
   if (inGroup === false) {
-    navigate('/student/create-group');
+    navigate("/student/create-group");
     return null;
   }
 
@@ -149,10 +168,12 @@ function StudentDashboard() {
           <div className="flex items-center space-x-6">
             <div className="text-right">
               <p className="text-white font-semibold">
-                {studentData ? studentData.name : 'Student'}
+                {studentData ? studentData.name : "Student"}
               </p>
               <p className="text-white/70 text-sm">
-                {studentData ? `${studentData.enrollmentNumber} - ${studentData.department}` : 'Loading...'}
+                {studentData
+                  ? `${studentData.enrollmentNumber} - ${studentData.department}`
+                  : "Loading..."}
               </p>
             </div>
 
@@ -207,9 +228,11 @@ function StudentDashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-4xl font-bold text-white mb-2">
-            Welcome back, {studentData ? studentData.name : 'Student'}!
+            Welcome back, {studentData ? studentData.name : "Student"}!
           </h2>
-          <p className="text-white/70">Ready to continue your academic journey?</p>
+          <p className="text-white/70">
+            Ready to continue your academic journey?
+          </p>
         </div>
 
         {/* Quick Actions Grid */}
@@ -219,40 +242,40 @@ function StudentDashboard() {
             {[
               {
                 icon: FileText,
-                title: 'Project Submission',
-                description: 'Submit your project work and documents',
-                onClick: goToProjectSubmission
+                title: "Project Submission",
+                description: "Submit your project work and documents",
+                onClick: goToProjectSubmission,
               },
               {
                 icon: MessageSquare,
-                title: 'Group Chat',
-                description: 'Chat with your group members',
-                onClick: goToGroupChat
+                title: "Group Chat",
+                description: "Chat with your group members",
+                onClick: goToGroupChat,
               },
               {
                 icon: MessageSquare,
-                title: 'Feedback',
-                description: 'View guide feedback and suggestions',
-                onClick: goToFeedback
+                title: "Feedback",
+                description: "View guide feedback and suggestions",
+                onClick: goToFeedback,
               },
               {
                 icon: Bell,
-                title: 'Announcements',
-                description: 'Important updates from administration',
-                onClick: goToAnnouncements
+                title: "Announcements",
+                description: "Important updates from administration",
+                onClick: goToAnnouncements,
               },
               {
                 icon: Calendar,
-                title: 'Exam Schedules',
-                description: 'View your examination timetable',
-                onClick: goToExamSchedules
+                title: "Schedules",
+                description: "View your examination timetable",
+                onClick: goToExamSchedules,
               },
               {
                 icon: User,
-                title: 'Guide Details',
-                description: 'Contact information and availability',
-                onClick: goToGuideDetails
-              }
+                title: "Guide Details",
+                description: "Contact information and availability",
+                onClick: goToGuideDetails,
+              },
             ].map((card, index) => (
               <DashboardCard
                 key={card.title}
@@ -265,7 +288,6 @@ function StudentDashboard() {
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );

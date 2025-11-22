@@ -9,6 +9,7 @@ import {
   createGroup,
   getStudentProfile,
   getAllAnnouncements,
+  getStudentExamSchedules,
 } from "../controllers/studentController.js";
 import { protectStudent } from "../middlewares/authMiddleware.js";
 
@@ -26,5 +27,7 @@ router.get("/available-students", protectStudent, getAvailableStudents);
 router.post("/create-group", protectStudent, createGroup);
 
 router.get("/announcements", getAllAnnouncements);
+
+router.get("/exam-schedules", protectStudent, getStudentExamSchedules);
 
 export default router;
