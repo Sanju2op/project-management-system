@@ -497,6 +497,7 @@ export const getGuideGroups = async (req, res) => {
 
     const groups = await Group.find({ guide: guideId })
       .populate("students", "name email enrollmentNumber")
+      .populate("division", "course semester year")
       .lean();
 
     const formatted = groups.map((g) => ({
@@ -507,6 +508,7 @@ export const getGuideGroups = async (req, res) => {
       technology: g.projectTechnology || "",
       year: g.year,
       course:
+        g.division?.course ||
         (Array.isArray(g.membersSnapshot) &&
           g.membersSnapshot[0]?.divisionCourse) ||
         null,
@@ -592,6 +594,7 @@ export const getGroupByIdForGuide = async (req, res) => {
 
     const group = await Group.findOne({ _id: groupId, guide: guideId })
       .populate("students", "name email enrollmentNumber")
+      .populate("division", "course semester year")
       .lean();
     if (!group) {
       return res
@@ -607,6 +610,7 @@ export const getGroupByIdForGuide = async (req, res) => {
       technology: group.projectTechnology || "",
       year: group.year,
       course:
+        group.division?.course ||
         (Array.isArray(group.membersSnapshot) &&
           group.membersSnapshot[0]?.divisionCourse) ||
         null,
@@ -725,7 +729,14 @@ export const listGuidePanelGroups = async (req, res) => {
         select: "_id name email enrollmentNumber phone",
         model: Student,
       })
+      .populate("division", "course semester year")
       .lean();
+
+    groups.forEach((group) => {
+      if (!group.course && group.division?.course) {
+        group.course = group.division.course;
+      }
+    });
 
     return res.status(200).json({
       success: true,
@@ -758,6 +769,7 @@ export const getGuidePanelGroupDetails = async (req, res) => {
         model: Student,
         select: "_id name email enrollmentNumber phone",
       })
+      .populate("division", "course semester year")
       .lean();
 
     if (!group) {
@@ -765,6 +777,10 @@ export const getGuidePanelGroupDetails = async (req, res) => {
         success: false,
         message: "No group found for this guide.",
       });
+    }
+
+    if (!group.course && group.division?.course) {
+      group.course = group.division.course;
     }
 
     // ✅ For frontend consistency
@@ -876,6 +892,7 @@ export const updateGroupDetailsAndMembers = async (req, res) => {
 
     const populated = await Group.findById(group._id)
       .populate("students", "name email enrollmentNumber")
+      .populate("division", "course semester year")
       .lean();
 
     return res.status(200).json({
@@ -890,6 +907,11 @@ export const updateGroupDetailsAndMembers = async (req, res) => {
         proposalPdf: populated.proposalPdf || null,
         projectApprovalStatus: populated.projectApprovalStatus,
         rejectionReason: populated.rejectionReason || null,
+        course:
+          populated.division?.course ||
+          (Array.isArray(populated.membersSnapshot) &&
+            populated.membersSnapshot[0]?.divisionCourse) ||
+          null,
         members: (populated.students || []).map((s) => ({
           id: s._id,
           name: s.name,

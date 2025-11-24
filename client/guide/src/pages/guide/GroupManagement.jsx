@@ -4,6 +4,29 @@ import { ChevronLeft, Users, User, BookOpen, Code, Hash, Edit, X, Plus, Search }
 import { useNavigate } from 'react-router-dom';
 import { guidePanelAPI } from '../../services/api';
 
+const mapMember = (member = {}) => ({
+  _id: member._id || member.id,
+  name: member.name || member.fullName || 'Unnamed',
+  enrollmentNumber: member.enrollmentNumber || member.enrollment || '—',
+});
+
+const mapGroup = (group = {}) => ({
+  id: group.id || group._id,
+  name: group.groupName || group.name || 'Group',
+  projectTitle: group.projectTitle || '',
+  projectDescription: group.projectDescription || group.description || '',
+  projectTechnology: group.projectTechnology || group.technology || '',
+  course:
+    group.course ||
+    group.division?.course ||
+    group.divisionCourse ||
+    group.membersSnapshot?.[0]?.divisionCourse ||
+    '',
+  year: group.year || new Date().getFullYear(),
+  members: (group.members || group.students || []).map(mapMember),
+  status: group.status || 'In Progress',
+});
+
 // Mock Data for Guide's Groups
 const guideGroups = [
   {
@@ -57,22 +80,7 @@ function GroupManagement() {
       try {
         setLoading(true);
         const res = await guidePanelAPI.getGroups();
-        // Map to local card structure
-        // console.log(res);
-        const mapped = (res || []).map(g => ({
-          id: g.id,
-          name: g.groupName || g.name || 'Group',
-          projectTitle: g.projectTitle || '',
-          projectDescription: g.description || '',
-          projectTechnology: g.technology || '',
-          course: g.course || '',
-          year: g.year || new Date().getFullYear(),
-          members: (g.members || []).map(m => ({
-            _id: m.id,
-            name: m.name,
-            enrollmentNumber: m.enrollmentNumber,
-          })),
-        }));
+        const mapped = (res || []).map(mapGroup);
         setGroups(mapped);
       } catch (e) {
         setError('Failed to load groups');
@@ -92,20 +100,11 @@ function GroupManagement() {
       setLoading(true);
       // Always fetch latest details from API
       const details = await guidePanelAPI.getGroupDetails(group.id);
-      const mapped = {
-        id: details.id,
-        name: details.groupName || group.name,
-        projectTitle: details.projectTitle || group.projectTitle,
-        projectDescription: details.description || '',
-        projectTechnology: details.technology || '',
-        course: details.course || group.course || '',
-        year: details.year || group.year,
-        members: (details.members || []).map(m => ({
-          _id: m.id,
-          name: m.name,
-          enrollmentNumber: m.enrollmentNumber,
-        })),
-      };
+      const mapped = mapGroup({
+        ...group,
+        ...details,
+        members: details.members || details.students,
+      });
       setSelectedGroup(mapped);
     } catch (e) {
       setError('Failed to load group details');
@@ -179,6 +178,7 @@ function GroupManagement() {
     }
     setLoading(true);
     try {
+      const groupId = selectedGroup.id || selectedGroup._id;
       const updateData = {
         projectTitle: editedGroup.projectTitle,
         projectDescription: editedGroup.projectDescription,
@@ -186,9 +186,13 @@ function GroupManagement() {
         technology: editedGroup.projectTechnology,
         members: currentMembers.map(m => m._id)
       };
-      await guidePanelAPI.updateGroupDetails(selectedGroup.id, updateData);
+      await guidePanelAPI.updateGroupDetails(groupId, updateData);
       // Update local state
-      const updatedGroup = { ...selectedGroup, ...editedGroup, members: currentMembers };
+      const updatedGroup = mapGroup({
+        ...selectedGroup,
+        ...editedGroup,
+        members: currentMembers,
+      });
       setGroups(groups.map(g => g.id === selectedGroup.id ? updatedGroup : g));
       setSelectedGroup(updatedGroup);
       handleCloseEdit();
@@ -202,10 +206,12 @@ function GroupManagement() {
   // Load available students when opening edit
   useEffect(() => {
     const fetchAvailable = async () => {
-      if (!isEditing || !selectedGroup) return;
+      if (!isEditing || !selectedGroup?.id) return;
       try {
-        const res = await guidePanelAPI.getAvailableStudentsForGroup(selectedGroup.id);
-        setAvailableStudents(res.data || []);
+        const res = await guidePanelAPI.getAvailableStudentsForGroup(
+          selectedGroup.id
+        );
+        setAvailableStudents(res || []);
       } catch (e) {
         // non-fatal
       }
