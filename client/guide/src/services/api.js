@@ -238,18 +238,59 @@ export const projectAPI = {
 // Note: Based on backend routes, some endpoints may not be implemented yet
 export const guidePanelAPI = {
   // Dashboard - Fetch groups and announcements
+  // getDashboard: async () => {
+  //   try {
+  //     const [groupsData, announcementsData] = await Promise.all([
+  //       guidePanelAPI.getGroups().catch(() => []),
+  //       guidePanelAPI
+  //         .getCommunication({ type: "announcement" })
+  //         .catch(() => []),
+  //     ]);
+
+  //     return {
+  //       groups: groupsData || [],
+  //       announcements: announcementsData || [],
+  //       profile: null,
+  //     };
+  //   } catch (error) {
+  //     console.error("Error fetching dashboard data:", error);
+  //     return {
+  //       groups: [],
+  //       announcements: [],
+  //       profile: null,
+  //     };
+  //   }
+  // },
+
   getDashboard: async () => {
     try {
-      const [groupsData, announcementsData] = await Promise.all([
+      const guideUser = authAPI.getCurrentUser();
+      const guideId = guideUser?.id || guideUser?._id;
+
+      const [
+        groupsData,
+        targetedAnnouncements,
+        globalAnnouncements,
+      ] = await Promise.all([
         guidePanelAPI.getGroups().catch(() => []),
-        guidePanelAPI
-          .getCommunication({ type: "announcement" })
-          .catch(() => []),
+        guideId
+          ? guidePanelAPI.getGuideAnnouncements(guideId).catch(() => [])
+          : [],
+        guidePanelAPI.getAllGuideAnnouncements().catch(() => []),
       ]);
+
+      const announcementsData =
+        (Array.isArray(targetedAnnouncements) && targetedAnnouncements.length
+          ? targetedAnnouncements
+          : null) ||
+        (Array.isArray(globalAnnouncements) && globalAnnouncements.length
+          ? globalAnnouncements
+          : []) ||
+        [];
 
       return {
         groups: groupsData || [],
-        announcements: announcementsData || [],
+        announcements: announcementsData,
         profile: null,
       };
     } catch (error) {
@@ -261,6 +302,28 @@ export const guidePanelAPI = {
       };
     }
   },
+
+  getGuideAnnouncements: async (guideId) => {
+    if (!guideId) return [];
+    const response = await apiRequest(`/guides/${guideId}/announcements`, {
+      method: "GET",
+    });
+
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    return [];
+  },
+
+  getAllGuideAnnouncements: async () => {
+    const response = await apiRequest(`/admin/guide-announcements`, {
+      method: "GET",
+    });
+
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    if (Array.isArray(response?.data)) return response.data;
+    return [];
+  },
+
 
   // Group Management
   getGroups: async (params = {}) => {

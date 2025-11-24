@@ -117,6 +117,92 @@ export default function GuideDashboard() {
   ]);
   */
 
+  /**
+   * Normalize status-like values for easy comparisons.
+   * @param {string | null | undefined} value
+   * @returns {string}
+   */
+  const normalizeStatus = (value = "") =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+
+  /**
+   * Safely check whether a normalized value exists within a list.
+   * @param {string | null | undefined} value
+   * @param {string[]} list
+   * @returns {boolean}
+   */
+  const isInList = (value = "", list = []) =>
+    Array.isArray(list) && list.indexOf(normalizeStatus(value)) !== -1;
+
+  const STATUS_BUCKETS = {
+    pending: ["pending", "pending review", "pending evaluation", "awaiting review"],
+    active: [
+      "active",
+      "in progress",
+      "not started",
+      "pending",
+      "pending review",
+      "pending evaluation",
+    ],
+    completed: ["completed", "done", "finished"],
+  };
+
+  const pendingReviewsCount = assignedGroups.filter((group) => {
+    const status = normalizeStatus(group.status);
+    const approval = normalizeStatus(group.projectApprovalStatus);
+    const evaluation = normalizeStatus(
+      group.evaluationStatus || group.evaluation?.status
+    );
+
+    return (
+      isInList(status, STATUS_BUCKETS.pending) ||
+      isInList(approval, STATUS_BUCKETS.pending) ||
+      isInList(evaluation, STATUS_BUCKETS.pending)
+    );
+  }).length;
+
+  const completedProjectsCount = assignedGroups.filter((group) => {
+    const status = normalizeStatus(group.status);
+    const approval = normalizeStatus(group.projectApprovalStatus);
+    const evaluation = normalizeStatus(
+      group.evaluationStatus || group.evaluation?.status
+    );
+
+    return (
+      isInList(status, STATUS_BUCKETS.completed) ||
+      approval === "approved" ||
+      isInList(evaluation, STATUS_BUCKETS.completed)
+    );
+  }).length;
+
+  const activeProjectsCount =
+    assignedGroups.filter((group) => {
+      const status = normalizeStatus(group.status);
+      const approval = normalizeStatus(group.projectApprovalStatus);
+      const evaluation = normalizeStatus(
+        group.evaluationStatus || group.evaluation?.status
+      );
+
+      if (
+        isInList(status, STATUS_BUCKETS.completed) ||
+        approval === "approved" ||
+        isInList(evaluation, STATUS_BUCKETS.completed)
+      ) {
+        return false;
+      }
+
+      // Treat missing statuses as active so the UI reflects existing assignments.
+      if (!status && !approval && !evaluation) {
+        return true;
+      }
+
+      return (
+        isInList(status, STATUS_BUCKETS.active) ||
+        isInList(approval, STATUS_BUCKETS.active) ||
+        isInList(evaluation, STATUS_BUCKETS.active)
+      );
+    }).length || Math.max(assignedGroups.length - completedProjectsCount, 0);
+
   const stats = [
     {
       title: "Assigned Groups",
@@ -128,9 +214,7 @@ export default function GuideDashboard() {
     },
     {
       title: "Pending Reviews",
-      value: assignedGroups
-        .filter((g) => g.status === "Under Review")
-        .length.toString(),
+      value: pendingReviewsCount.toString(),
       icon: FileText,
       color: "text-amber-400",
       bg: "bg-amber-400/20",
@@ -138,9 +222,7 @@ export default function GuideDashboard() {
     },
     {
       title: "Active Projects",
-      value: assignedGroups
-        .filter((g) => g.status === "In Progress")
-        .length.toString(),
+      value: activeProjectsCount.toString(),
       icon: BookOpen,
       color: "text-blue-400",
       bg: "bg-blue-400/20",
@@ -148,9 +230,7 @@ export default function GuideDashboard() {
     },
     {
       title: "Completed Projects",
-      value: assignedGroups
-        .filter((g) => g.status === "Completed")
-        .length.toString(),
+      value: completedProjectsCount.toString(),
       icon: CheckCircle,
       color: "text-green-400",
       bg: "bg-green-400/20",
