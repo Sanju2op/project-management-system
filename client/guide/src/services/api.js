@@ -267,16 +267,30 @@ export const guidePanelAPI = {
       const guideUser = authAPI.getCurrentUser();
       const guideId = guideUser?.id || guideUser?._id;
 
-      const [groupsData, announcementsData] = await Promise.all([
+      const [
+        groupsData,
+        targetedAnnouncements,
+        globalAnnouncements,
+      ] = await Promise.all([
         guidePanelAPI.getGroups().catch(() => []),
         guideId
           ? guidePanelAPI.getGuideAnnouncements(guideId).catch(() => [])
           : [],
+        guidePanelAPI.getAllGuideAnnouncements().catch(() => []),
       ]);
+
+      const announcementsData =
+        (Array.isArray(targetedAnnouncements) && targetedAnnouncements.length
+          ? targetedAnnouncements
+          : null) ||
+        (Array.isArray(globalAnnouncements) && globalAnnouncements.length
+          ? globalAnnouncements
+          : []) ||
+        [];
 
       return {
         groups: groupsData || [],
-        announcements: announcementsData || [],
+        announcements: announcementsData,
         profile: null,
       };
     } catch (error) {
@@ -294,7 +308,20 @@ export const guidePanelAPI = {
     const response = await apiRequest(`/guides/${guideId}/announcements`, {
       method: "GET",
     });
-    return response.data || [];
+
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    return [];
+  },
+
+  getAllGuideAnnouncements: async () => {
+    const response = await apiRequest(`/admin/guide-announcements`, {
+      method: "GET",
+    });
+
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    if (Array.isArray(response?.data)) return response.data;
+    return [];
   },
 
 
