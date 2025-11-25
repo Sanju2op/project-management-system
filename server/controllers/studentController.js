@@ -6,6 +6,7 @@ import { notificationAPI } from "../../client/student/src/services/api.js";
 import Announcement from "../models/courseAnnouncement.js";
 import ExamSchedule from "../models/examSchedule.js";
 import Guide from "../models/guide.js";
+import GroupChatMessage from "../models/groupChatMessage.js";
 
 // GET /api/student/divisions - list active divisions
 export const getActiveDivisions = async (req, res) => {
@@ -368,5 +369,96 @@ export const getAssignedGuide = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch guide details" });
+  }
+};
+
+export const getGroupChatMessages = async (req, res) => {
+  try {
+    const studentId = req.student._id;
+
+    const group = await Group.findOne({ students: studentId })
+      .populate("students", "name enrollmentNumber")
+      .lean();
+
+    if (!group) {
+      return res.json({
+        group: null,
+        messages: [],
+        currentStudentId: studentId,
+      });
+    }
+
+    const chatMessages = await GroupChatMessage.find({ group: group._id })
+      .populate("sender", "name enrollmentNumber")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const normalizedMessages = chatMessages.map((msg) => ({
+      id: msg._id,
+      content: msg.message,
+      createdAt: msg.createdAt,
+      sender: {
+        id: msg.sender?._id?.toString() || null,
+        name: msg.sender?.name || "Unknown",
+        enrollmentNumber: msg.sender?.enrollmentNumber || "",
+      },
+    }));
+
+    return res.json({
+      group: {
+        id: group._id,
+        name: group.name,
+        members: (group.students || []).map((student) => ({
+          id: student._id,
+          name: student.name,
+          enrollmentNumber: student.enrollmentNumber,
+        })),
+      },
+      messages: normalizedMessages,
+      currentStudentId: studentId,
+    });
+  } catch (error) {
+    console.error("Error fetching group chat messages:", error);
+    res.status(500).json({ message: "Failed to load chat messages" });
+  }
+};
+
+export const postGroupChatMessage = async (req, res) => {
+  try {
+    const studentId = req.student._id;
+    const { message } = req.body || {};
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: "Message content is required" });
+    }
+
+    const group = await Group.findOne({ students: studentId });
+    if (!group) {
+      return res
+        .status(400)
+        .json({ message: "Join a group to start chatting" });
+    }
+
+    const chatMessage = await GroupChatMessage.create({
+      group: group._id,
+      sender: studentId,
+      message: message.trim(),
+    });
+
+    await chatMessage.populate("sender", "name enrollmentNumber");
+
+    return res.status(201).json({
+      id: chatMessage._id,
+      content: chatMessage.message,
+      createdAt: chatMessage.createdAt,
+      sender: {
+        id: chatMessage.sender?._id?.toString() || null,
+        name: chatMessage.sender?.name || "Unknown",
+        enrollmentNumber: chatMessage.sender?.enrollmentNumber || "",
+      },
+    });
+  } catch (error) {
+    console.error("Error sending group chat message:", error);
+    res.status(500).json({ message: "Failed to send message" });
   }
 };

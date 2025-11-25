@@ -83,7 +83,6 @@ function StudentDashboard() {
     };
   }, []);
 
-  const goToProjectSubmission = () => navigate("/student/project-submission");
   const goToGroupManagement = () => navigate("/student/group-management");
   const goToFeedback = () => navigate("/student/feedback");
   const goToAnnouncements = () => navigate("/student/announcements");
@@ -241,12 +240,6 @@ function StudentDashboard() {
           <h3 className="text-2xl font-bold text-white mb-6">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              {
-                icon: FileText,
-                title: "Project Submission",
-                description: "Submit your project work and documents",
-                onClick: goToProjectSubmission,
-              },
               {
                 icon: MessageSquare,
                 title: "Group Chat",

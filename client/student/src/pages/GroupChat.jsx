@@ -1,43 +1,57 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Send, Users, ArrowLeft, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Send, Users, ArrowLeft, User, Loader2, AlertCircle } from "lucide-react";
+import { studentProtectedAPI } from "../services/api";
+
+const formatTimestamp = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+};
 
 function GroupChat() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [groupInfo, setGroupInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [currentStudentId, setCurrentStudentId] = useState(null);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Mock group data - in a real app, this would come from an API
   useEffect(() => {
-    // Simulate fetching group data
-    const fetchGroupData = async () => {
-      // Mock group data
-      const mockGroupData = {
-        id: 1,
-        name: "Web Development Project Team",
-        members: [
-          { id: 1, name: "Aryan Patel", isOnline: true },
-          { id: 2, name: "Zeel Rathod", isOnline: true },
-          { id: 3, name: "Kartik Patel", isOnline: false },
-          { id: 4, name: "Sanjay Lagariya", isOnline: true }
-        ]
-      };
-      
-      // Mock messages
-      const mockMessages = [
-        { id: 1, sender: "Zeel Rathod", content: "Hi everyone! How's the project coming along?", timestamp: "10:30 AM", isOwn: false },
-        { id: 2, sender: "Kartik Patel", content: "I've completed the frontend design. Will share it soon.", timestamp: "11:15 AM", isOwn: false },
-        { id: 3, sender: "You", content: "Great work team! I'm working on the backend API integration.", timestamp: "11:45 AM", isOwn: true },
-        { id: 4, sender: "Sanjay Lagariya", content: "Can we schedule a meeting for tomorrow to discuss the progress?", timestamp: "12:20 PM", isOwn: false }
-      ];
-      
-      setGroupInfo(mockGroupData);
-      setMessages(mockMessages);
+    const loadChat = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await studentProtectedAPI.getGroupChatMessages();
+
+        setGroupInfo(response.group || null);
+        setCurrentStudentId(response.currentStudentId || null);
+
+        const normalizedMessages = (response.messages || []).map((msg) => ({
+          id: msg.id || msg._id,
+          senderName: msg.sender?.name || "Unknown",
+          senderId: msg.sender?.id || msg.senderId,
+          content: msg.content || msg.message,
+          timestamp: msg.createdAt,
+          isOwn:
+            (msg.sender?.id || msg.senderId)?.toString() ===
+            (response.currentStudentId || "").toString(),
+        }));
+
+        setMessages(normalizedMessages);
+      } catch (err) {
+        console.error("Failed to load chat", err);
+        setError(err.message || "Failed to load group chat.");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchGroupData();
+    loadChat();
   }, []);
 
   // Scroll to bottom of messages
@@ -49,25 +63,62 @@ function GroupChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (newMessage.trim() === '') return;
+    if (!newMessage.trim() || !groupInfo) return;
 
-    const message = {
-      id: messages.length + 1,
-      sender: "You",
-      content: newMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isOwn: true
-    };
+    try {
+      setIsSending(true);
+      const response = await studentProtectedAPI.sendGroupChatMessage(
+        newMessage.trim()
+      );
 
-    setMessages([...messages, message]);
-    setNewMessage('');
+      const formattedMessage = {
+        id: response.id || response._id,
+        senderName: response.sender?.name || "You",
+        senderId: response.sender?.id || currentStudentId,
+        content: response.content || response.message,
+        timestamp: response.createdAt,
+        isOwn: true,
+      };
+
+      setMessages((prev) => [...prev, formattedMessage]);
+      setNewMessage("");
+    } catch (err) {
+      console.error("Failed to send message", err);
+      setError(err.message || "Failed to send message.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const goBack = () => {
     navigate('/student/dashboard');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <span>Loading group chat...</span>
+      </div>
+    );
+  }
+
+  if (!groupInfo) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white gap-4 px-4 text-center">
+        <AlertCircle size={40} className="text-yellow-400" />
+        <p>You need to be part of a group to use the chat.</p>
+        <button
+          onClick={() => navigate("/student/create-group")}
+          className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl text-white transition"
+        >
+          Create or Join Group
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 font-sans">
@@ -88,7 +139,7 @@ function GroupChat() {
               </h1>
               {groupInfo && (
                 <p className="text-white/70 text-sm">
-                  {groupInfo.members.filter(member => member.isOnline).length} online
+                  {groupInfo.members?.length || 0} members
                 </p>
               )}
             </div>
@@ -105,7 +156,12 @@ function GroupChat() {
         <div className="flex-1 flex flex-col">
           {/* Messages Container */}
           <div className="flex-1 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 p-6 mb-6 overflow-y-auto max-h-[calc(100vh-250px)]">
-            {messages.length === 0 ? (
+            {error ? (
+              <div className="flex flex-col items-center justify-center h-full text-red-300 gap-2">
+                <AlertCircle />
+                <p>{error}</p>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-white/50">
                 <p>No messages yet. Start the conversation!</p>
               </div>
@@ -114,27 +170,27 @@ function GroupChat() {
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${message.isOwn ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
                         message.isOwn
-                          ? 'bg-blue-600 text-white rounded-br-none'
-                          : 'bg-white/10 text-white rounded-bl-none'
+                          ? "bg-blue-600 text-white rounded-br-none"
+                          : "bg-white/10 text-white rounded-bl-none"
                       }`}
                     >
                       {!message.isOwn && (
                         <p className="text-xs font-semibold mb-1 text-blue-300">
-                          {message.sender}
+                          {message.senderName}
                         </p>
                       )}
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-sm break-words">{message.content}</p>
                       <p
                         className={`text-xs mt-1 ${
-                          message.isOwn ? 'text-blue-200' : 'text-white/50'
+                          message.isOwn ? "text-blue-200" : "text-white/50"
                         }`}
                       >
-                        {message.timestamp}
+                        {formatTimestamp(message.timestamp)}
                       </p>
                     </div>
                   </div>
@@ -155,9 +211,10 @@ function GroupChat() {
             />
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl transition duration-200 flex items-center justify-center"
+              disabled={isSending || !newMessage.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/40 text-white p-3 rounded-2xl transition duration-200 flex items-center justify-center"
             >
-              <Send size={20} />
+              {isSending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </button>
           </form>
         </div>
@@ -166,7 +223,7 @@ function GroupChat() {
         <div className="lg:w-80 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-fit">
           <h2 className="text-xl font-bold text-white mb-4">Group Members</h2>
           <div className="space-y-3">
-            {groupInfo ? (
+            {groupInfo.members && groupInfo.members.length > 0 ? (
               groupInfo.members.map((member) => (
                 <div
                   key={member.id}
@@ -176,20 +233,15 @@ function GroupChat() {
                     <div className="bg-gray-600 rounded-full p-2">
                       <User size={20} className="text-white" />
                     </div>
-                    {member.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900"></div>
-                    )}
                   </div>
                   <div>
                     <p className="text-white font-medium">{member.name}</p>
-                    <p className={`text-xs ${member.isOnline ? 'text-green-400' : 'text-gray-400'}`}>
-                      {member.isOnline ? 'Online' : 'Offline'}
-                    </p>
+                    <p className="text-xs text-white/50">{member.enrollmentNumber}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-white/50">Loading members...</p>
+              <p className="text-white/50">No members found</p>
             )}
           </div>
         </div>

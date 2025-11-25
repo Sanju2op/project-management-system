@@ -63,6 +63,35 @@ export const studentProtectedAPI = {
       },
     });
   },
+  getGuideDetails: () => {
+    const token = localStorage.getItem("studentToken");
+    return apiRequest("/student/guide-details", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+  getGroupChatMessages: () => {
+    const token = localStorage.getItem("studentToken");
+    return apiRequest("/student/group-chat/messages", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+
+  sendGroupChatMessage: (message) => {
+    const token = localStorage.getItem("studentToken");
+    return apiRequest("/student/group-chat/messages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message }),
+    });
+  },
   getAvailableStudents: () => {
     const token = localStorage.getItem("studentToken");
     return apiRequest("/student/available-students", {
