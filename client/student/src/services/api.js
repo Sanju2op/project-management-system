@@ -177,4 +177,11 @@ export const notificationAPI = {
     }),
 };
 
+export const documentAPI = {
+  getAll: () =>
+    apiRequest("/documents", {
+      method: "GET",
+    }),
+};
+
 export default apiRequest;

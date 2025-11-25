@@ -92,6 +92,7 @@ function StudentDashboard() {
   const goToProfile = () => navigate("/student/profile");
   const goToGroupChat = () => navigate("/student/group-chat");
   const goToCreateGroup = () => navigate("/student/create-group");
+  const goToDocuments = () => navigate("/student/documents");
 
   const handleProfileSettings = () => {
     setIsSettingsMenuOpen(false);
@@ -257,6 +258,12 @@ function StudentDashboard() {
                 title: "Feedback",
                 description: "View guide feedback and suggestions",
                 onClick: goToFeedback,
+              },
+              {
+                icon: FileText,
+                title: "Documents",
+                description: "Download resources shared by admin",
+                onClick: goToDocuments,
               },
               {
                 icon: Bell,
