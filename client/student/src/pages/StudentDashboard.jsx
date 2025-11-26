@@ -248,10 +248,10 @@ function StudentDashboard() {
               },
               {
                 icon: MessageSquare,
-                title: "Feedback",
-                description: "View guide feedback and suggestions",
+                title: "Communicate",
+                description: "Communicate with guide and admin",
                 onClick: goToFeedback,
-              },
+              },  
               {
                 icon: FileText,
                 title: "Documents",

@@ -328,32 +328,6 @@ export default function ProjectEvaluation() {
                   </div>
                 </div>
 
-                {/* Project Documents */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white mb-3">
-                    Project Documents
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {selectedProject.documents.map((doc, index) => (
-                      <div
-                        key={`${doc}-${index}`}
-                        className="flex items-center justify-between p-3 bg-white/10 rounded-lg border border-white/20"
-                      >
-                        <div className="flex items-center gap-2">
-                          <FileText size={16} className="text-teal-400" />
-                          <span className="text-white/80 text-sm">{doc}</span>
-                        </div>
-                        <button
-                          onClick={() => downloadDocument(doc)}
-                          className="p-1 bg-white/10 text-white rounded hover:bg-white/20 transition"
-                        >
-                          <Download size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Group Members */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white mb-3">
