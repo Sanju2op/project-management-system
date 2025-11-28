@@ -603,7 +603,7 @@ function GroupManagement() {
                       {member.name}
                     </span>
                     <div className="text-sm text-white/80">
-                      {member.enrollment}
+                      {member.enrollmentNumber}
                     </div>
 
                     {/* ⭐ ADD THIS LINE ⭐ */}
