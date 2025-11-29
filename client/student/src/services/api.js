@@ -72,6 +72,15 @@ export const studentProtectedAPI = {
       },
     });
   },
+  getGuideFeedback: () => {
+    const token = localStorage.getItem("studentToken");
+    return apiRequest("/student/feedback", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
   getGroupChatMessages: () => {
     const token = localStorage.getItem("studentToken");
     return apiRequest("/student/group-chat/messages", {

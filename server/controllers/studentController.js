@@ -7,6 +7,7 @@ import Announcement from "../models/courseAnnouncement.js";
 import ExamSchedule from "../models/examSchedule.js";
 import Guide from "../models/guide.js";
 import GroupChatMessage from "../models/groupChatMessage.js";
+import Feedback from "../models/feedback.js";
 
 // GET /api/student/divisions - list active divisions
 export const getActiveDivisions = async (req, res) => {
@@ -369,6 +370,43 @@ export const getAssignedGuide = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch guide details" });
+  }
+};
+
+// GET /api/student/feedback - fetch feedback entries for the student's group
+export const getStudentGroupFeedback = async (req, res) => {
+  try {
+    const studentId = req.student._id;
+
+    const group = await Group.findOne({ students: studentId }).lean();
+    if (!group) {
+      return res.json({ feedbacks: [] });
+    }
+
+    const feedbackDocs = await Feedback.find({ group: group._id })
+      .populate("guide", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const feedbacks = feedbackDocs.map((item) => ({
+      id: item._id,
+      groupId: group._id,
+      groupName: group.name,
+      project: item.projectTitle || group.projectTitle || "",
+      feedback: item.message,
+      rating: item.rating || 5,
+      recommendations: item.recommendations || "",
+      status: item.status || "Submitted",
+      response: item.response || "",
+      guideName: item.guide?.name || null,
+      guideEmail: item.guide?.email || null,
+      date: item.createdAt?.toISOString?.().split("T")[0] || null,
+    }));
+
+    return res.json({ feedbacks });
+  } catch (error) {
+    console.error("Error fetching student feedback:", error);
+    res.status(500).json({ message: "Failed to fetch feedback" });
   }
 };
 

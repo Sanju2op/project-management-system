@@ -14,6 +14,8 @@ import {
   Award,
   Clock,
   TrendingUp,
+  Star,
+  AlertCircle,
 } from "lucide-react";
 import { studentProtectedAPI } from "../services/api";
 
@@ -23,6 +25,9 @@ function StudentDashboard() {
   const [studentData, setStudentData] = useState(null);
   const [inGroup, setInGroup] = useState(null);
   const [group, setGroup] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
   const settingsMenuRef = useRef(null);
   const settingsIconRef = useRef(null);
 
@@ -82,6 +87,28 @@ function StudentDashboard() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchFeedbacks = async () => {
+      try {
+        setFeedbackLoading(true);
+        setFeedbackError("");
+        const response = await studentProtectedAPI.getGuideFeedback();
+        setFeedbacks(response.feedbacks || response.data || []);
+      } catch (error) {
+        console.error("Error fetching guide feedback:", error);
+        setFeedbackError("Unable to load feedback right now.");
+      } finally {
+        setFeedbackLoading(false);
+      }
+    };
+
+    if (inGroup) {
+      fetchFeedbacks();
+    } else if (inGroup === false) {
+      setFeedbacks([]);
+    }
+  }, [inGroup]);
 
   const goToGroupManagement = () => navigate("/student/group-management");
   const goToFeedback = () => navigate("/student/feedback");
@@ -144,6 +171,35 @@ function StudentDashboard() {
           <Icon size={24} className="text-white" />
         </div>
       </div>
+    </div>
+  );
+
+  const getStatusBadgeClasses = (status) => {
+    switch (status) {
+      case "Submitted":
+        return "bg-blue-500/20 text-blue-200 border border-blue-400/30";
+      case "Pending Response":
+        return "bg-orange-500/20 text-orange-200 border border-orange-400/30";
+      case "Completed":
+        return "bg-green-500/20 text-green-200 border border-green-400/30";
+      default:
+        return "bg-gray-500/20 text-gray-200 border border-gray-400/30";
+    }
+  };
+
+  const renderRatingStars = (rating = 0) => (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((starValue) => (
+        <Star
+          key={starValue}
+          size={16}
+          className={
+            starValue <= rating
+              ? "text-yellow-400 fill-current"
+              : "text-white/30"
+          }
+        />
+      ))}
     </div>
   );
 
@@ -287,6 +343,104 @@ function StudentDashboard() {
               />
             ))}
           </div>
+        </div>
+
+        {/* Guide Feedback Section */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white">Guide Feedback</h3>
+              <p className="text-white/70">
+                Track the latest reviews, ratings, and recommendations from your
+                guide.
+              </p>
+            </div>
+            {feedbackError && (
+              <div className="flex items-center text-red-200 bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-2 text-sm">
+                <AlertCircle size={16} className="mr-2" />
+                {feedbackError}
+              </div>
+            )}
+          </div>
+
+          {feedbackLoading ? (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-white/70">
+              Loading feedback...
+            </div>
+          ) : feedbacks.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-10 text-center text-white/60">
+              <MessageSquare size={40} className="mx-auto mb-4 text-white/30" />
+              <p>No feedback available yet. Your guide's feedback will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {feedbacks.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white/5 border border-white/10 rounded-3xl p-6"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-white/50 mb-1">
+                        Group
+                      </p>
+                      <h4 className="text-xl font-semibold text-white">
+                        {item.groupName || "Your Group"}
+                      </h4>
+                      <p className="text-white/70 text-sm">
+                        {item.project || "Project title not set"}
+                      </p>
+                    </div>
+                    <div className="text-left md:text-right space-y-2">
+                      {renderRatingStars(item.rating)}
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClasses(
+                          item.status
+                        )}`}
+                      >
+                        {item.status || "Submitted"}
+                      </span>
+                      <p className="text-white/60 text-sm">
+                        Updated {item.date || "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-white/80 text-sm leading-relaxed">
+                      {item.feedback}
+                    </p>
+                  </div>
+
+                  {item.recommendations && (
+                    <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+                      <p className="text-white/70 text-xs uppercase tracking-wide mb-2">
+                        Recommendations
+                      </p>
+                      <p className="text-white/80 text-sm">{item.recommendations}</p>
+                    </div>
+                  )}
+
+                  {item.response && (
+                    <div className="mt-4 bg-blue-500/10 border border-blue-400/20 rounded-2xl p-4">
+                      <p className="text-blue-200 text-xs uppercase tracking-wide mb-2">
+                        Your Response
+                      </p>
+                      <p className="text-blue-100 text-sm">{item.response}</p>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-white/60">
+                    <span>
+                      Guide: {item.guideName || "Assigned guide"}
+                      {item.guideEmail ? ` (${item.guideEmail})` : ""}
+                    </span>
+                    <span>Feedback ID: {item.id}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

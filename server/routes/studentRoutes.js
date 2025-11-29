@@ -13,6 +13,7 @@ import {
   getStudentExamSchedules,
   getGroupChatMessages,
   postGroupChatMessage,
+  getStudentGroupFeedback,
 } from "../controllers/studentController.js";
 
 import { protectStudent } from "../middlewares/authMiddleware.js";
@@ -46,6 +47,7 @@ router.get("/exam-schedules", protectStudent, getStudentExamSchedules);
 
 // Guide
 router.get("/guide-details", protectStudent, getAssignedGuide);
+router.get("/feedback", protectStudent, getStudentGroupFeedback);
 router.get(
   "/group-chat/messages",
   protectStudent,
