@@ -434,7 +434,7 @@ function ProjectManagement() {
           />
           <InfoPill label="Status" value={selectedGroup.status} highlight />
           <InfoPill
-            label="Members"
+            label="Students"
             value={selectedGroup.students?.length || 0}
           />
         </div>
@@ -782,8 +782,8 @@ function ProjectManagement() {
                   status={project.status}
                 />
                 <ProjectInfoItem
-                  label="Members"
-                  value={project.students?.length || 0}
+                  label="Students"
+                  value={project.members?.length || 0}
                 />
               </div>
 

@@ -80,6 +80,7 @@ function GuideManagement() {
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editExpertise, setEditExpertise] = useState(null);
+  const [groupCounts, setGroupCounts] = useState({});
 
   const [newGuide, setNewGuide] = useState({
     name: "",
@@ -105,14 +106,43 @@ function GuideManagement() {
     try {
       setLoading(true);
       const { data } = await guideAPI.getAll();
-      console.log(data);
-      setGuides(data.data);
+      setGuides(data.data || []);
+      if (data.data && data.data.length > 0) {
+        await fetchAllGuideGroupCounts(data.data);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to load guides.");
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchAllGuideGroupCounts = async (guideList) => {
+    const counts = {};
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("adminToken");
+    const API_BASE_URL =
+      import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+    await Promise.all(
+      guideList.map(async (guide) => {
+        try {
+          const res = await axios.get(
+            `${API_BASE_URL}/admin/get-groups-by-guide/${guide._id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          counts[guide._id] = res.data.count ?? res.data.data?.length ?? 0;
+        } catch (error) {
+          counts[guide._id] = 0;
+        }
+      })
+    );
+
+    setGroupCounts(counts);
+  };
+
   // ✨ Add this new code block near top of the component (after useState declarations)
   const [guideLimit, setGuideLimit] = useState(null);
 
@@ -791,36 +821,48 @@ function GuideManagement() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleViewGroups(guide)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && handleViewGroups(guide)
-                            }
-                            className="text-blue-400 hover:text-blue-300 mr-3"
-                            aria-label={`View groups for ${guide.name}`}
-                          >
-                            <Users size={20} />
-                          </button>
-                          <button
-                            onClick={() => handleEditGuide(guide)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && handleEditGuide(guide)
-                            }
-                            className="text-teal-300 hover:text-teal-200 mr-3"
-                            aria-label={`Edit ${guide.name}`}
-                          >
-                            <Edit size={20} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteGuide(guide._id)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && handleDeleteGuide(guide._id)
-                            }
-                            className="text-red-400 hover:text-red-300 mr-3"
-                            aria-label={`Delete ${guide.name}`}
-                          >
-                            <Trash2 size={20} />
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            {/* Count badge with gradient, icon, shadow */}
+                            <div className="inline-flex items-center bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white text-xs font-semibold rounded-full px-3 py-1 shadow-lg shadow-cyan-500/50">
+                              <Users className="w-4 h-4 mr-1" />
+                              {groupCounts[guide._id] ?? 0}
+                            </div>
+
+                            {/* Buttons with subtle rounded background and hover */}
+                            <button
+                              onClick={() => handleViewGroups(guide)}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && handleViewGroups(guide)
+                              }
+                              className="p-2 rounded-lg bg-white/10 text-blue-400 hover:text-blue-300 hover:bg-white/20 active:scale-95 transition-transform"
+                              aria-label={`View groups for ${guide.name}`}
+                            >
+                              <Users size={18} />
+                            </button>
+
+                            <button
+                              onClick={() => handleEditGuide(guide)}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && handleEditGuide(guide)
+                              }
+                              className="p-2 rounded-lg bg-white/10 text-teal-400 hover:text-teal-300 hover:bg-white/20 active:scale-95 transition-transform"
+                              aria-label={`Edit ${guide.name}`}
+                            >
+                              <Edit size={18} />
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteGuide(guide._id)}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" &&
+                                handleDeleteGuide(guide._id)
+                              }
+                              className="p-2 rounded-lg bg-white/10 text-red-400 hover:text-red-300 hover:bg-white/20 active:scale-95 transition-transform"
+                              aria-label={`Delete ${guide.name}`}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

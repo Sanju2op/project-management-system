@@ -209,6 +209,13 @@ function ManageDivisions() {
     return `${registeredCount}/${divisionEnrollments.length}`;
   };
 
+  // Count how many students in a division belong to a group
+  const getGroupStats = (divisionId) => {
+    const divisionEnrollments = getDivisionEnrollments(divisionId);
+    const inGroup = divisionEnrollments.filter((e) => e.group !== null).length;
+    const notInGroup = divisionEnrollments.length - inGroup;
+    return { inGroup, notInGroup };
+  };
   // Toggle status
   const handleToggleStatus = async (division) => {
     try {
@@ -545,9 +552,22 @@ function ManageDivisions() {
               </button>
             </div>
           </div>
-          <p className="text-white/80 mb-6 font-semibold">
+          {/* Registered Students */}
+          <p className="text-white/80 mb-2 font-semibold">
             Registered Students: {getRegisteredCount(selectedDivision._id)}
           </p>
+
+          {/* Group Stats */}
+          {(() => {
+            const stats = getGroupStats(selectedDivision._id);
+            return (
+              <div className="text-white/80 mb-6 font-semibold">
+                <p>Students In Group: {stats.inGroup}</p>
+                <p>Students Not In Group: {stats.notInGroup}</p>
+              </div>
+            );
+          })()}
+
           {loading ? (
             <p className="text-white/70 text-center py-12 text-lg">
               Loading enrollments...
@@ -589,6 +609,15 @@ function ManageDivisions() {
                         {enrollment.isRegistered
                           ? `Registered: ${enrollment.name || "N/A"}`
                           : "Not Registered"}
+                      </p>
+
+                      {/* NEW: Group Status */}
+                      <p className="text-sm mt-1 font-semibold">
+                        {enrollment.group ? (
+                          <span className="text-green-300">✔ In Group</span>
+                        ) : (
+                          <span className="text-red-300">✖ Not In Group</span>
+                        )}
                       </p>
                     </div>
                   </div>

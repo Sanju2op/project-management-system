@@ -40,9 +40,6 @@ const StudentManagement = () => {
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const approvedRequests = requests.filter((r) => r.status === "approved");
-  const rejectedRequests = requests.filter((r) => r.status === "rejected");
 
   // --- API Call Functions ---
 

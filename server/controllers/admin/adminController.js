@@ -852,11 +852,10 @@ export const updateGroup = async (req, res) => {
     }
 
     // 3️⃣ Handle adding new students
-    // 3️⃣ Handle adding new students
     if (Array.isArray(addStudentIds) && addStudentIds.length > 0) {
-      const currentIds = group.students.map((s) => s._id.toString());
+      const currentIds = group.students.map((s) => s.toString());
       const uniqueNewIds = addStudentIds.filter(
-        (id) => !currentIds.includes(id)
+        (id) => !currentIds.includes(id.toString())
       );
 
       const newStudents = await Student.find({
@@ -866,36 +865,35 @@ export const updateGroup = async (req, res) => {
       const currentCount = group.students.length;
       const totalAfterAdd = currentCount + newStudents.length;
 
-      // ✅ Default max = 4
       if (totalAfterAdd > 4) {
-        // allow admin override up to 5
         if (totalAfterAdd > 5) {
           return res.status(400).json({
             success: false,
-            message:
-              "Cannot exceed 5 members total. (4 normal + 1 admin override)",
+            message: "Cannot exceed 5 members total. (4 normal + 1 override)",
           });
         } else {
-          console.log(
-            "⚠️ Admin override: Adding 5th member to group:",
-            group.name
-          );
+          console.log("⚠️ Admin override: Adding 5th member:", group.name);
         }
       }
 
       // Add to group
       group.students.push(...newStudents.map((s) => s._id));
 
-      // Add to membersSnapshot, marking 5th as override
+      // IMPORTANT: Update student.group for EVERY student
+      for (const s of newStudents) {
+        await Student.findByIdAndUpdate(s._id, { group: group._id });
+      }
+
+      // Add to snapshot
       group.membersSnapshot.push(
-        ...newStudents.map((s, idx) => ({
+        ...newStudents.map((s) => ({
           studentRef: s._id,
           enrollmentNumber: s.enrollmentNumber,
           name: s.name,
           joinedAt: new Date(),
           divisionCourse: s.division.course,
           divisionSemester: s.division.semester,
-          override: totalAfterAdd > 4 ? true : false, // ⚠️ mark as override
+          override: totalAfterAdd > 4,
         }))
       );
     }

@@ -51,8 +51,16 @@ export const generateGroupEvaluationsPDF = ({
 
     const tableStartY = currentY + VERTICAL_SPACING;
 
+    const totalMarks = parameters.reduce((sum, p) => sum + (p.marks || 0), 0);
+
     const head = [
-      ["Sr", "Student", "Enroll", ...parameters.map((p) => p.name), "Total"],
+      [
+        "Sr",
+        "Student",
+        "Enroll",
+        ...parameters.map((p) => `${p.name} (${p.marks})`),
+        `Total (${totalMarks})`,
+      ],
     ];
 
     const members = group.members || [];
